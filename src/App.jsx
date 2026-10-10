@@ -254,6 +254,11 @@ function App() {
   const [storeDraft, setStoreDraft] = useState({ name: '', city: '' })
   const [priceDraft, setPriceDraft] = useState({ product_id: '', price: '' })
   const [qrisState, setQrisState] = useState(null)
+  const [qrisSettingsDraft, setQrisSettingsDraft] = useState({ mode: 'static', merchant_display_name: '', provider_merchant_id: '', provider_server_key: '', provider_is_production: false })
+  const [qrisSavedSettings, setQrisSavedSettings] = useState(null)
+  const [qrisStaticFile, setQrisStaticFile] = useState(null)
+  const [qrisSettingsBusy, setQrisSettingsBusy] = useState(false)
+  const [qrisCheckoutMode, setQrisCheckoutMode] = useState('dynamic')
   const [scannerTarget, setScannerTarget] = useState('cashier')
   const [receiptToShow, setReceiptToShow] = useState(null)
   const [adminStores, setAdminStores] = useState([])
@@ -366,6 +371,25 @@ function App() {
     setEmployees(employeeRes.data || [])
     setLoadingData(false)
   }, [demo, storeId, session, showToast])
+
+  useEffect(() => {
+    if (demo || !supabase || !storeId || !session) return
+    let alive = true
+    supabase.from('store_qris_settings').select('mode,static_qr_storage_path,merchant_display_name,provider,provider_merchant_id,provider_is_production,dynamic_status')
+      .eq('store_id', storeId).maybeSingle().then(({ data }) => {
+        if (!alive) return
+        const saved = data || null
+        setQrisSavedSettings(saved)
+        if (saved) {
+          setQrisSettingsDraft(current => ({ ...current, mode: saved.mode || 'static', merchant_display_name: saved.merchant_display_name || '', provider_merchant_id: saved.provider_merchant_id || '', provider_server_key: '', provider_is_production: Boolean(saved.provider_is_production) }))
+          setQrisCheckoutMode(saved.mode === 'static' ? 'static' : 'dynamic')
+        } else {
+          setQrisSavedSettings(null)
+          setQrisSettingsDraft(current => ({ ...current, mode: 'static', provider_server_key: '' }))
+        }
+      })
+    return () => { alive = false }
+  }, [demo, storeId, session?.user?.id])
 
   useEffect(() => {
     if (!session && !demo) return
@@ -488,11 +512,16 @@ function App() {
     try {
       if (paymentMethod === 'qris') {
         if (!demo) {
-          const { data, error } = await supabase.functions.invoke('create-qris-payment', { body: { store_id: currentStore.id, items: cartItemsForRpc, discount: discountAmount } })
+          const { data: settings, error: settingsError } = await supabase.from('store_qris_settings').select('mode').eq('store_id', currentStore.id).maybeSingle()
+          if (settingsError) throw settingsError
+          const selectedMode = settings?.mode === 'static' ? 'static' : settings?.mode === 'both' ? qrisCheckoutMode : 'dynamic'
+          const functionName = selectedMode === 'static' ? 'create-static-qris-sale' : 'create-qris-payment'
+          const { data, error } = await supabase.functions.invoke(functionName, { body: { store_id: currentStore.id, items: cartItemsForRpc, discount: discountAmount } })
           if (error) throw error
-          setModal({ type: 'qris', sale_id: data.sale_id, receipt_no: data.receipt_no, total: data.total, qr_string: data.qr_string, qr_url: data.qr_url, expires_at: data.expires_at, order_id: data.order_id })
+          if (data?.error) throw new Error(data.error)
+          setModal({ type: 'qris', qris_mode: selectedMode, sale_id: data.sale_id, receipt_no: data.receipt_no, total: data.total, qr_string: data.qr_string, qr_url: data.qr_url, expires_at: data.expires_at, order_id: data.order_id, merchant_display_name: data.merchant_display_name })
         } else {
-          setModal({ type: 'qris', demo: true, sale_id: `demo-qris-${Date.now()}`, receipt_no: `TF-${todayISO().replaceAll('-', '').slice(2)}-${String(sales.length + 1).padStart(4, '0')}`, total: cartTotal, qr_string: 'TOKOFLOW-DEMO-QRIS-NOT-A-REAL-PAYMENT' })
+          setModal({ type: 'qris', demo: true, qris_mode: 'dynamic', sale_id: `demo-qris-${Date.now()}`, receipt_no: `TF-${todayISO().replaceAll('-', '').slice(2)}-${String(sales.length + 1).padStart(4, '0')}`, total: cartTotal, qr_string: 'TOKOFLOW-DEMO-QRIS-NOT-A-REAL-PAYMENT' })
         }
         return
       }
@@ -769,6 +798,7 @@ function App() {
         <div className="cart-items">{cart.map(({ product, qty }) => <div className="cart-item" key={product.id}><ProductVisual product={product} /><div className="cart-item-details"><strong>{product.name}</strong><small>{idr(product.price)} / {product.unit || 'unit'}</small><div className="qty-control"><button onClick={() => changeCartQty(product.id, qty - 1)} aria-label="Kurangi jumlah"><Minus size={13} /></button><span>{qty}</span><button onClick={() => changeCartQty(product.id, qty + 1)} aria-label="Tambah jumlah"><Plus size={13} /></button></div></div><div className="cart-item-price"><strong>{idr(product.price * qty)}</strong><button onClick={() => changeCartQty(product.id, 0)} aria-label={`Hapus ${product.name}`}><Trash2 size={14} /></button></div></div>)}{!cart.length && <div className="cart-empty"><div><ShoppingCart size={24} /></div><strong>Keranjang masih kosong</strong><p>Pilih barang dari daftar untuk memulai transaksi.</p></div>}</div>
         <div className="cart-bottom"><div className="discount-row"><span>Diskon transaksi</span><div className="discount-input"><span>Rp</span><input inputMode="numeric" value={cartDiscount} onChange={e => setCartDiscount(e.target.value.replace(/[^0-9]/g, ''))} aria-label="Diskon rupiah" /></div></div><div className="cart-summary-row"><span>Subtotal</span><strong>{idr(cartSubtotal)}</strong></div><div className="cart-summary-row"><span>Diskon</span><strong className="discount-text">−{idr(discountAmount)}</strong></div><div className="cart-total-row"><span>Total bayar</span><strong>{idr(cartTotal)}</strong></div>
           <div className="payment-selector-label">Pilih metode pembayaran</div><div className="checkout-methods"><button className={paymentMethod === 'cash' ? 'selected' : ''} onClick={() => setPaymentMethod('cash')}><Banknote size={17} /><span>Tunai</span></button><button className={paymentMethod === 'qris' ? 'selected' : ''} onClick={() => setPaymentMethod('qris')}><QrCode size={17} /><span>QRIS</span></button><button className={paymentMethod === 'transfer' ? 'selected' : ''} onClick={() => setPaymentMethod('transfer')}><CreditCard size={17} /><span>Transfer</span></button></div>
+          {paymentMethod === 'qris' && !demo && qrisSavedSettings?.mode === 'both' && <div className="qris-mode-choice"><label><input type="radio" name="qris-mode" checked={qrisCheckoutMode === 'static'} onChange={() => setQrisCheckoutMode('static')} /> QRIS statis <small>Konfirmasi manual</small></label><label><input type="radio" name="qris-mode" checked={qrisCheckoutMode === 'dynamic'} onChange={() => setQrisCheckoutMode('dynamic')} /> QRIS dinamis <small>Konfirmasi otomatis</small></label></div>}
           {paymentMethod === 'cash' && cart.length > 0 && <div className="cash-received"><label>Uang diterima</label><div className="discount-input"><span>Rp</span><input inputMode="numeric" value={cashReceived} onChange={e => setCashReceived(e.target.value.replace(/[^0-9]/g, ''))} placeholder={String(cartTotal)} /></div><small>Kembalian <strong>{idr(Math.max(0, Number(cashReceived || 0) - cartTotal))}</strong></small></div>}
           <button className="button button-primary button-wide checkout-button" disabled={!cart.length || checkoutBusy || (paymentMethod === 'cash' && cashReceived !== '' && Number(cashReceived) < cartTotal)} onClick={checkout}>{checkoutBusy ? <span className="spinner" /> : paymentMethod === 'qris' ? <QrCode size={18} /> : <CheckCircle2 size={18} />}{paymentMethod === 'qris' ? 'Lanjut ke pembayaran QRIS' : 'Selesaikan transaksi'} <ArrowRight size={17} /></button>
           <div className="secure-caption"><LockKeyhole size={12} /> Stok diperbarui saat transaksi disimpan</div>
@@ -819,11 +849,64 @@ function App() {
       <div className="role-permission-note"><ShieldCheck size={18} /><div><strong>Setiap peran memiliki batas akses berbeda</strong><p>Kasir hanya memproses transaksi; inventaris mengelola barang dan stok; manajer mengakses laporan dan tim; pemilik mengatur seluruh toko. Data antartoko tetap dipisahkan oleh kebijakan database.</p></div></div></section>
   </>
 
+  const saveQrisSettings = async () => {
+    if (demo || !supabase || !currentStore?.id) return showToast('Pengaturan QRIS membutuhkan koneksi Supabase.', 'error')
+    setQrisSettingsBusy(true)
+    try {
+      let staticPath = qrisSavedSettings?.static_qr_storage_path || null
+      if (qrisStaticFile) {
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(qrisStaticFile.type)) throw new Error('Gunakan gambar PNG, JPG, atau WebP.')
+        if (qrisStaticFile.size > 5 * 1024 * 1024) throw new Error('Ukuran gambar QRIS maksimal 5 MB.')
+        const safeName = qrisStaticFile.name.toLowerCase().replace(/[^a-z0-9._-]/g, '-')
+        staticPath = `${currentStore.id}/${Date.now()}-${safeName}`
+        const { error: uploadError } = await supabase.storage.from('store-qris').upload(staticPath, qrisStaticFile, { contentType: qrisStaticFile.type, upsert: false })
+        if (uploadError) throw uploadError
+      }
+      const { data, error } = await supabase.functions.invoke('save-qris-settings', { body: {
+        store_id: currentStore.id, mode: qrisSettingsDraft.mode,
+        merchant_display_name: qrisSettingsDraft.merchant_display_name,
+        provider_merchant_id: qrisSettingsDraft.provider_merchant_id,
+        provider_server_key: qrisSettingsDraft.provider_server_key,
+        provider_is_production: qrisSettingsDraft.provider_is_production,
+        static_qr_storage_path: staticPath,
+      } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setQrisSavedSettings({ ...(qrisSavedSettings || {}), mode: qrisSettingsDraft.mode, static_qr_storage_path: staticPath, merchant_display_name: qrisSettingsDraft.merchant_display_name, provider_merchant_id: qrisSettingsDraft.provider_merchant_id, provider_is_production: qrisSettingsDraft.provider_is_production, dynamic_status: data.dynamic_status })
+      setQrisSettingsDraft(current => ({ ...current, provider_server_key: '' }))
+      setQrisStaticFile(null)
+      showToast('Pengaturan QRIS toko berhasil disimpan.')
+    } catch (err) { showToast(err?.message || 'Pengaturan QRIS gagal disimpan.', 'error') }
+    finally { setQrisSettingsBusy(false) }
+  }
+
+  const confirmStaticQris = async () => {
+    if (!supabase || !modal?.sale_id) return
+    try {
+      const { data, error } = await supabase.functions.invoke('confirm-static-qris-payment', { body: { sale_id: modal.sale_id } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const { data: saleData, error: saleError } = await supabase.from('sales').select('*,sale_items(*)').eq('id', modal.sale_id).single()
+      if (saleError) throw saleError
+      await loadStoreData(storeId)
+      setCart([]); setCartDiscount('0'); setCashReceived('')
+      setModal({ type: 'receipt', sale: normaliseSale(saleData) })
+      showToast('Pembayaran QRIS statis dikonfirmasi. Pastikan pembayaran sudah dicek di portal merchant.')
+    } catch (err) { showToast(err?.message || 'Konfirmasi pembayaran gagal.', 'error') }
+  }
+
   const renderSettings = () => <>
     <PageTitle eyebrow="KONFIGURASI" title="Pengaturan toko" description="Kelola informasi toko, perangkat, dan integrasi yang digunakan." />
     <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><div className="settings-form-grid"><label>Nama toko<input value={currentStore?.name || ''} readOnly /></label><label>Kota / lokasi<input value={currentStore?.city || ''} readOnly placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label></div><div className="settings-note"><LockKeyhole size={15} /> Untuk mengubah informasi toko, gunakan konfigurasi akun yang memiliki akses pemilik.</div><button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button></section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak browser.</p></section>
-      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Gerbang pembayaran digital</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (import.meta.env.VITE_SUPABASE_URL ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : 'Integrasi server'}</span></div><div className="integration-card"><div className="integration-graphic qris-graphic"><QrCode size={30} /></div><div className="integration-copy"><strong>Midtrans QRIS</strong><p>Transaksi QRIS dibuat di server dan status final diperbarui lewat webhook pembayaran.</p><span className="integration-status"><span className={`status-indicator ${demo ? 'amber-dot' : 'gray'}`} />{demo ? 'Simulasi saja — tidak menerima uang' : 'Perlu Server Key & webhook'}</span></div></div><div className="settings-note"><KeyRound size={15} /> Rahasia Midtrans harus disimpan sebagai Supabase Edge Function Secret, bukan variabel VITE_ di browser.</div></section>
+      <section className="panel settings-section qris-settings-panel"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Atur metode pembayaran khusus toko aktif</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (qrisSavedSettings ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : qrisSavedSettings ? 'Terkonfigurasi' : 'Belum diatur'}</span></div>
+        {demo ? <div className="settings-note"><KeyRound size={15} /> Mode demo tidak menyimpan kredensial merchant atau menerima pembayaran nyata. Keluar dari demo dan hubungkan Supabase untuk mengatur QRIS.</div> : <>
+          <label className="qris-field">Metode QRIS yang digunakan<select value={qrisSettingsDraft.mode} onChange={e => setQrisSettingsDraft(v => ({ ...v, mode: e.target.value }))}><option value="static">QRIS statis</option><option value="dynamic">QRIS dinamis</option><option value="both">Keduanya (statis dan dinamis)</option></select></label>
+          {(qrisSettingsDraft.mode === 'static' || qrisSettingsDraft.mode === 'both') && <div className="qris-upload-area"><label className="qris-field">Nama merchant yang tampil<input value={qrisSettingsDraft.merchant_display_name} onChange={e => setQrisSettingsDraft(v => ({ ...v, merchant_display_name: e.target.value }))} placeholder={currentStore?.name || 'Nama toko sesuai QRIS'} /></label><label className="qris-field">Gambar QRIS statis<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => setQrisStaticFile(e.target.files?.[0] || null)} /></label><small>{qrisStaticFile ? `File dipilih: ${qrisStaticFile.name}` : qrisSavedSettings?.static_qr_storage_path ? 'QRIS statis sudah tersimpan. Pilih file baru untuk menggantinya.' : 'Unggah QRIS dari penyedia/acquirer resmi toko ini. Maksimal 5 MB.'}</small></div>}
+          {(qrisSettingsDraft.mode === 'dynamic' || qrisSettingsDraft.mode === 'both') && <div className="qris-upload-area"><div className="settings-note"><KeyRound size={15} /> Setiap toko memakai Server Key milik akun merchant sendiri. Kunci dienkripsi di server dan tidak dikirim kembali ke browser.</div><label className="qris-field">Provider<select value="midtrans" disabled><option value="midtrans">Midtrans (QRIS)</option></select></label><label className="qris-field">ID merchant<input value={qrisSettingsDraft.provider_merchant_id} onChange={e => setQrisSettingsDraft(v => ({ ...v, provider_merchant_id: e.target.value }))} placeholder="ID merchant dari dashboard provider" /></label><label className="qris-field">Server Key merchant<input type="password" autoComplete="new-password" value={qrisSettingsDraft.provider_server_key} onChange={e => setQrisSettingsDraft(v => ({ ...v, provider_server_key: e.target.value }))} placeholder={qrisSavedSettings?.dynamic_status === 'connected' ? 'Tersimpan aman — isi hanya jika ingin mengganti' : 'Masukkan Server Key merchant'} /></label><label className="qris-checkbox-field"><input type="checkbox" checked={qrisSettingsDraft.provider_is_production} onChange={e => setQrisSettingsDraft(v => ({ ...v, provider_is_production: e.target.checked }))} /> Gunakan environment produksi <small>Biarkan tidak dicentang untuk Sandbox saat pengujian.</small></label><small>Status dinamis: {qrisSavedSettings?.dynamic_status === 'connected' ? 'kredensial tersimpan; tetap wajib menguji webhook merchant' : 'belum terhubung'}</small></div>}
+          <button className="button button-primary" onClick={saveQrisSettings} disabled={qrisSettingsBusy || (qrisSettingsDraft.mode === 'static' || qrisSettingsDraft.mode === 'both') && !qrisStaticFile && !qrisSavedSettings?.static_qr_storage_path}>{qrisSettingsBusy ? <span className="spinner" /> : <CheckCircle2 size={16} />} Simpan pengaturan QRIS</button>
+          <p className="settings-footnote">QRIS statis harus dikonfirmasi setelah memeriksa transaksi pada portal merchant. QRIS dinamis hanya dianggap lunas setelah webhook bertanda tangan valid.</p>
+        </>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon amber"><Bell size={19} /></span><div><h3>Notifikasi & laporan</h3><p>Pengingat stok dan ringkasan harian</p></div></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><AlertTriangle size={17} /></span><div><strong>Stok menipis</strong><small>Ingatkan saat jumlah barang mencapai stok minimum.</small></div><button className="button button-secondary button-sm" onClick={enablePush}><Bell size={14} /> Aktifkan push</button></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><FileSpreadsheet size={17} /></span><div><strong>Laporan harian</strong><small>Ringkasan penjualan dapat dijadwalkan dikirim melalui push notification.</small></div><button className="button button-secondary button-sm" onClick={() => { setReportDate(todayISO()); navigate('reports') }}>Lihat laporan</button></div><p className="settings-footnote">Pengiriman push saat aplikasi tertutup membutuhkan konfigurasi VAPID dan fungsi terjadwal di Supabase. Lihat README untuk langkah aktivasi.</p></section>
       <section className="panel settings-section appearance-settings"><div className="settings-section-heading"><span className="settings-icon"><Sun size={19} /></span><div><h3>Tampilan aplikasi</h3><p>Sesuaikan dengan kenyamanan Anda</p></div></div><div className="theme-options"><button className={theme === 'light' ? 'selected' : ''} onClick={() => setTheme('light')}><span className="theme-preview light-preview"><i /><i /><i /></span><strong><Sun size={16} /> Mode terang</strong>{theme === 'light' && <CheckCircle2 size={17} />}</button><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setTheme('dark')}><span className="theme-preview dark-preview"><i /><i /><i /></span><strong><Moon size={16} /> Mode gelap</strong>{theme === 'dark' && <CheckCircle2 size={17} />}</button></div></section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat (PWA)</h3><p>Pasang TokoFlow di layar utama</p></div></div><p className="settings-long-copy">Akses lebih cepat dari layar utama dan dapat membuka shell aplikasi saat koneksi terbatas. Fitur install sengaja tidak ditampilkan pada halaman kasir agar area transaksi tetap fokus.</p><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install TokoFlow POS</button>{!deferredPrompt && <small className="settings-footnote">Jika tombol install tidak menampilkan prompt, gunakan menu browser “Tambahkan ke layar utama”.</small>}</section></div>
@@ -893,7 +976,7 @@ function App() {
 
     {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Gunakan kamera belakang atau input kode secara manual." onClose={() => setModal(null)} width="small"><BarcodeScanner onDetected={onBarcodeDetected} onClose={() => setModal(null)} /></Modal>}
 
-    {modal?.type === 'qris' && <Modal title="Pembayaran QRIS" subtitle={modal.demo ? 'Simulasi demo — tidak ada transaksi uang nyata' : `Struk ${modal.receipt_no || ''}`} onClose={() => { setModal(null); setQrisState(null) }} width="small"><div className="qris-modal-content"><div className="qris-amount-label">Total yang harus dibayar</div><strong className="qris-amount">{idr(modal.total)}</strong>{modal.demo ? <div className="demo-qr-placeholder"><QrCode size={72} /><strong>QRIS DEMO</strong><small>Bukan kode pembayaran asli</small></div> : modal.qr_url ? <div className="qris-generated-image"><img src={modal.qr_url} alt="Kode QRIS pembayaran" /></div> : <div className="demo-qr-placeholder"><QrCode size={62} /><strong>Menunggu kode QR</strong></div>}<div className="qris-waiting"><span className="spinner spinner-dark" /><div><strong>{modal.demo ? 'Simulasi pembayaran' : 'Menunggu pembayaran pelanggan'}</strong><small>{modal.demo ? 'Klik tombol di bawah untuk simulasi sukses.' : 'Halaman akan diperbarui otomatis setelah webhook pembayaran dikonfirmasi.'}</small></div></div>{modal.demo && <button className="button button-primary button-wide" onClick={confirmDemoQris}><CheckCircle2 size={17} /> Simulasikan pembayaran berhasil</button>}{!modal.demo && <div className="qris-info-box"><Clock3 size={16} /><span>Jangan tutup halaman ini sebelum pembayaran dikonfirmasi oleh penyedia QRIS.</span></div>}<button className="button button-secondary button-wide" onClick={() => setModal(null)}>Tutup</button></div></Modal>}
+    {modal?.type === 'qris' && <Modal title="Pembayaran QRIS" subtitle={modal.demo ? 'Simulasi demo — tidak ada transaksi uang nyata' : `Struk ${modal.receipt_no || ''}`} onClose={() => { setModal(null); setQrisState(null) }} width="small"><div className="qris-modal-content"><div className="qris-amount-label">Total yang harus dibayar</div><strong className="qris-amount">{idr(modal.total)}</strong>{modal.demo ? <div className="demo-qr-placeholder"><QrCode size={72} /><strong>QRIS DEMO</strong><small>Bukan kode pembayaran asli</small></div> : modal.qr_url ? <div className="qris-generated-image"><img src={modal.qr_url} alt="Kode QRIS pembayaran" /></div> : <div className="demo-qr-placeholder"><QrCode size={62} /><strong>Menunggu kode QR</strong></div>}{modal.merchant_display_name && <p className="qris-merchant-name">{modal.merchant_display_name}</p>}<div className="qris-waiting"><span className="spinner spinner-dark" /><div><strong>{modal.demo ? 'Simulasi pembayaran' : modal.qris_mode === 'static' ? 'QRIS statis — konfirmasi manual' : 'Menunggu pembayaran pelanggan'}</strong><small>{modal.demo ? 'Klik tombol di bawah untuk simulasi sukses.' : modal.qris_mode === 'static' ? 'Pelanggan memasukkan nominal sesuai total. Kasir wajib memeriksa status pembayaran pada portal merchant sebelum mengonfirmasi.' : 'Status akan diperbarui otomatis setelah webhook pembayaran terverifikasi.'}</small></div></div>{modal.demo && <button className="button button-primary button-wide" onClick={confirmDemoQris}><CheckCircle2 size={17} /> Simulasikan pembayaran berhasil</button>}{!modal.demo && modal.qris_mode === 'static' && <button className="button button-primary button-wide" onClick={confirmStaticQris}><CheckCircle2 size={17} /> Saya sudah memeriksa pembayaran</button>}{!modal.demo && modal.qris_mode !== 'static' && <div className="qris-info-box"><Clock3 size={16} /><span>Jangan tutup halaman ini sebelum pembayaran dikonfirmasi oleh penyedia QRIS.</span></div>}<button className="button button-secondary button-wide" onClick={() => setModal(null)}>Tutup</button></div></Modal>}
 
     {modal?.type === 'receipt' && <Modal title="Detail transaksi" subtitle={modal.sale?.receipt_no} onClose={() => setModal(null)} width="small"><div className="receipt-detail"><div className="receipt-success"><span><CheckCircle2 size={25} /></span><strong>Transaksi {modal.sale?.status === 'paid' ? 'berhasil' : 'diperbarui'}</strong><small>{formatDate(modal.sale?.created_at, { year: 'numeric' })}</small></div><div className="receipt-number-box"><small>Nomor struk</small><strong>{modal.sale?.receipt_no || '—'}</strong><span>{paymentLabel(modal.sale?.payment_method)} · {modal.sale?.cashier_name || displayName}</span></div><div className="receipt-detail-items">{(modal.sale?.sale_items || []).map((item, i) => <div className="receipt-detail-item" key={item.id || `${item.product_id}-${i}`}><div><strong>{item.product_name || item.name || 'Barang'}</strong><small>{item.qty} × {idr(item.unit_price)}</small></div><strong>{idr(item.subtotal ?? item.qty * item.unit_price)}</strong></div>)}</div><div className="receipt-totals"><div><span>Subtotal</span><span>{idr(modal.sale?.subtotal ?? modal.sale?.total)}</span></div><div><span>Diskon</span><span>−{idr(modal.sale?.discount || 0)}</span></div><div className="receipt-grand-total"><strong>Total pembayaran</strong><strong>{idr(modal.sale?.total)}</strong></div></div><button className="button button-primary button-wide" onClick={() => printReceipt(modal.sale)}><Printer size={17} /> Cetak struk</button><button className="button button-secondary button-wide receipt-close-button" onClick={() => setModal(null)}>Selesai</button></div></Modal>}
 

@@ -1,5 +1,14 @@
 project_id = "tokoflow-pos"
 
+[functions.save-qris-settings]
+verify_jwt = true
+
+[functions.create-static-qris-sale]
+verify_jwt = true
+
+[functions.confirm-static-qris-payment]
+verify_jwt = true
+
 [functions.create-qris-payment]
 verify_jwt = true
 
@@ -13,4 +22,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.daily-report]
+verify_jwt = false
+
+[functions.expire-static-qris-sales]
 verify_jwt = false

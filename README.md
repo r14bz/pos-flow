@@ -10,7 +10,7 @@ Starter aplikasi POS berbahasa Indonesia untuk bisnis multi-toko. Frontend memak
 - Riwayat transaksi, ringkasan laporan, dan ekspor Excel `.xlsx` multi-sheet: Ringkasan, Transaksi, Detail Barang, dan Inventaris.
 - Manajemen karyawan berbasis peran dan Edge Function undangan email ke Supabase Auth.
 - Dukungan PWA/manifest/service worker, toggle mode terang/gelap, daftar toko dan panel administrator.
-- Database Supabase dengan RLS per `store_id`, RPC checkout/penyesuaian stok atomik, Supabase Realtime, integrasi QRIS Midtrans berbasis Edge Function, handler webhook, dan fungsi push notification.
+- Database Supabase dengan RLS per `store_id`, RPC checkout/penyesuaian stok atomik, QRIS statis/dinamis per toko, kredensial merchant terenkripsi di server, webhook, dan push notification.
 - Tombol install aplikasi disembunyikan dari halaman kasir (`/cashier`).
 - Demo interaktif untuk mencoba antarmuka tanpa konfigurasi Supabase. Data demo lokal bukan data produksi dan simulasi QRIS bukan pembayaran nyata.
 
@@ -45,7 +45,7 @@ Untuk pratinjau UI, Anda bisa langsung membuka aplikasi lalu pilih **Buka demo i
 
 4. Aktifkan Email Auth di **Authentication → Providers**. Atur email confirmation, SMTP, callback URL, dan domain produksi sesuai kebutuhan.
 5. Buat akun pertama melalui formulir daftar. Kebijakan RLS membatasi data toko ke anggota toko; tabel `store_memberships` merupakan sumber peran yang otoritatif.
-6. Bila akun administrator platform dibutuhkan, set `profiles.is_super_admin = true` secara manual melalui SQL Editor hanya untuk akun tepercaya. Contoh: `update public.profiles set is_super_admin = true where id = 'UUID-AKUN-TEPERCAYA';`. Jangan memakai `user_metadata` dari browser untuk menentukan administrator.
+6. Bila akun administrator platform dibutuhkan, set `profiles.is_super_admin = true` secara manual melalui SQL Editor hanya untuk akun tepercaya. Jangan memakai `user_metadata` dari browser untuk menentukan administrator.
 7. Aktifkan Realtime untuk tabel `products` dan `sales` jika project tidak menerapkan publication dari migrasi. Migrasi mencoba menambahkan keduanya ke `supabase_realtime`.
 
 ### Kebijakan tenant
@@ -72,27 +72,50 @@ git remote add origin https://github.com/USERNAME/REPO.git
 git push -u origin main
 ```
 
-## QRIS Midtrans
+## QRIS statis + dinamis per toko
 
-Frontend QRIS memanggil `create-qris-payment`; fungsi itu membuat order pending dan reservasi stok dengan RPC server, meminta QRIS ke Midtrans, lalu mengembalikan QR code. Webhook memvalidasi signature Midtrans dan hanya ketika menerima status sukses, transaksi berstatus paid. Jika pembayaran gagal/kedaluwarsa, stok yang direservasi dilepas kembali.
+TokoFlow menyimpan konfigurasi QRIS berdasarkan `store_id`. Setiap pemilik mengatur QRIS toko aktif di **Pengaturan Toko → Pembayaran QRIS**. Tidak ada satu Server Key global yang dipakai bersama semua toko.
 
-1. Buat/aktifkan akun merchant Midtrans dan QRIS pada dashboard merchant; gunakan Sandbox dulu.
-2. Deploy fungsi:
+- **QRIS statis:** unggah gambar QRIS resmi milik toko. File disimpan pada bucket privat `store-qris` dengan kebijakan Storage per toko. Kasir memasukkan total di POS, pelanggan memindai QR, lalu kasir wajib memeriksa pembayaran pada aplikasi/portal merchant sebelum menekan konfirmasi manual. Pembayaran statis tidak dapat diverifikasi otomatis hanya dari gambar atau tangkapan layar.
+- **QRIS dinamis:** pemilik memasukkan ID merchant dan Server Key dari akun merchant miliknya. Kunci dienkripsi dengan AES-GCM di Edge Function dan disimpan dalam tabel `store_qris_credentials` yang tidak dapat dibaca oleh `anon`/`authenticated`. QR dibuat per transaksi. Webhook memetakan `provider_order_id` unik ke toko yang benar, mendekripsi kunci toko itu di server, memvalidasi signature, dan baru mengonfirmasi pembayaran.
+- **Keduanya:** kasir dapat memilih statis (konfirmasi manual) atau dinamis (webhook).
+- Integrasi dinamis yang disiapkan saat ini adalah Midtrans. Masing-masing toko harus memiliki akun/izin merchant yang mendukung penggunaan API tersebut. Jangan menggunakan Server Key dari toko lain.
+
+### Migrasi dan secret QRIS
+
+1. Terapkan migrasi awal dan migrasi QRIS baru:
 
    ```bash
+   npx supabase db push
+   ```
+
+   Migrasi kedua menambahkan konfigurasi per toko, tabel kredensial privat, kolom mode/order ID, serta bucket privat untuk QRIS statis. Jika project Supabase tidak mengekspos tabel baru melalui Data API secara default, pastikan `public` atau tabel `store_qris_settings` tersedia pada Data API settings. Jangan memberi grant akses aplikasi pada `store_qris_credentials`; tabel ini sengaja hanya untuk fungsi server.
+
+2. Buat kunci enkripsi 32 byte pada mesin tepercaya, bukan di browser:
+
+   ```bash
+   openssl rand -base64 32
+   ```
+
+   Simpan hasilnya sebagai secret `PAYMENT_CREDENTIALS_ENCRYPTION_KEY` pada **Supabase → Edge Functions → Secrets**. Jangan masukkan ke GitHub, `.env` frontend, atau variabel berawalan `VITE_`. Jangan mengganti kunci setelah kredensial tersimpan kecuali Anda melakukan proses re-enkripsi kredensial yang ada.
+
+3. Deploy fungsi:
+
+   ```bash
+   npx supabase functions deploy save-qris-settings
+   npx supabase functions deploy create-static-qris-sale
+   npx supabase functions deploy confirm-static-qris-payment
+   npx supabase functions deploy expire-static-qris-sales
    npx supabase functions deploy create-qris-payment
    npx supabase functions deploy midtrans-webhook
    ```
 
-3. Isi secrets di Supabase **Edge Functions → Secrets** atau dengan CLI:
+4. Pada setiap akun merchant Midtrans, aktifkan QRIS/API dan masukkan **Server Key milik toko tersebut** melalui halaman pengaturan TokoFlow. Jangan menyimpan Server Key pada Vercel `VITE_*`.
+5. Atur URL notifikasi Midtrans ke `https://PROJECT_REF.supabase.co/functions/v1/midtrans-webhook` untuk setiap merchant yang mendukung URL webhook tersebut. Uji di Sandbox terlebih dahulu dan pastikan webhook terverifikasi sebelum produksi.
+6. Jadwalkan `POST https://PROJECT_REF.supabase.co/functions/v1/expire-static-qris-sales` setiap 5 menit dengan header `x-cron-secret: <CRON_SECRET>`. Fungsi ini membatalkan QRIS statis yang kedaluwarsa dan melepas stok reservasi. Set `CRON_SECRET` sebagai Supabase Edge Function Secret.
+7. QRIS statis harus diambil dari kanal resmi merchant. Untuk pengujian, gunakan instrumen Sandbox yang disediakan penyedia jika tersedia; jangan melakukan pembayaran percobaan ke QRIS produksi tanpa sengaja.
 
-   ```bash
-   npx supabase secrets set MIDTRANS_SERVER_KEY=YOUR_SERVER_KEY MIDTRANS_IS_PRODUCTION=false
-   ```
-
-   Secrets Supabase (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) umumnya telah tersedia di runtime Edge Functions.
-4. Di dashboard Midtrans, isi Notification URL ke `https://PROJECT_REF.supabase.co/functions/v1/midtrans-webhook` dan uji transaksi pada Sandbox sampai status callback terverifikasi.
-5. Ganti `MIDTRANS_IS_PRODUCTION=true` hanya setelah kredensial merchant produksi dan webhook diverifikasi. Jangan pernah menyimpan Server Key di variabel `VITE_`.
+**Batasan keamanan operasional:** kunci terenkripsi di database tetap bergantung pada kerahasiaan `PAYMENT_CREDENTIALS_ENCRYPTION_KEY`. Batasi akses Dashboard Supabase, aktifkan MFA untuk pemilik proyek, uji isolasi menggunakan dua akun/toko, dan lakukan rekonsiliasi berkala untuk transaksi QRIS statis.
 
 ## Barcode dan printer
 
@@ -114,16 +137,10 @@ Frontend QRIS memanggil `create-qris-payment`; fungsi itu membuat order pending 
 
 ## Catatan sebelum produksi
 
-- QRIS, invite email, dan push memerlukan akun/kunci provider yang valid serta pengujian end-to-end di lingkungan Sandbox.
+- QRIS dinamis, invite email, dan push memerlukan akun/kunci provider yang valid serta pengujian end-to-end di lingkungan Sandbox. QRIS statis membutuhkan verifikasi manual oleh kasir.
 - Verifikasi kebijakan RLS menggunakan minimal dua akun dan dua toko sebelum menyimpan data bisnis nyata. Migrasi adalah fondasi, bukan sertifikasi keamanan.
 - Untuk laporan harian yang dikirim melalui email/WhatsApp, tambahkan provider pengiriman dan jadwal terpisah; starter ini mengirim ringkasan lewat push.
 - Uji pemindai kamera, printer thermal, PWA install, dan mode offline pada perangkat target. Service worker saat ini meng-cache shell/static resources, bukan antrean transaksi offline.
-
-## Pengingat integrasi
-
-- QRIS produksi tidak aktif sebelum `MIDTRANS_SERVER_KEY`, konfigurasi merchant, dan URL webhook tersedia. Mulai dari Sandbox.
-- Browser hanya menerima publishable/anon key Supabase. Jangan pernah menaruh `SUPABASE_SERVICE_ROLE_KEY`, `MIDTRANS_SERVER_KEY`, atau `VAPID_PRIVATE_KEY` di variabel `VITE_` atau meng-commit nilainya ke GitHub.
-- Cron di Vercel berjalan hanya pada deployment Production. Untuk menjalankan fungsi harian secara manual, panggil endpoint `/api/cron/daily-report` dengan header `Authorization: Bearer <CRON_SECRET>`.
 
 ## Struktur utama
 
@@ -134,7 +151,6 @@ src/lib/demoData.js          Data contoh untuk mode demo
 public/manifest.webmanifest  Metadata PWA
 public/sw.js                 Service worker & push notification
 supabase/migrations/         Schema, RLS, RPC atomik, daily report view
-supabase/functions/          QRIS, webhook, invite karyawan, push notification
+supabase/functions/          QRIS per toko, webhook, invite karyawan, push notification
 vercel.json                  Rewrite path /cashier
 ```
-# pos-flow

@@ -960,3 +960,17 @@ input, select, textarea { color: var(--ink); }
   .report-summary-card > strong { font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Per-store QRIS configuration */
+.qris-settings-panel { min-width: 0; }
+.qris-field { display: flex; flex-direction: column; gap: 7px; margin: 14px 0; color: var(--ink); font-size: 13px; font-weight: 600; }
+.qris-field input, .qris-field select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); padding: 11px 12px; font: inherit; font-weight: 400; }
+.qris-upload-area { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 14px 0; }
+.qris-upload-area > small { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; margin: 7px 0; }
+.qris-checkbox-field { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; color: var(--ink); font-size: 13px; }
+.qris-checkbox-field small { flex-basis: 100%; color: var(--muted); margin-left: 24px; }
+.qris-mode-choice { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.qris-mode-choice label { display: flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+.qris-mode-choice small { color: var(--muted); }
+.qris-merchant-name { text-align: center; font-weight: 700; margin: 6px 0 12px; }
+@media (max-width: 640px) { .qris-upload-area { padding: 10px; } .qris-mode-choice { flex-direction: column; } .qris-mode-choice label { align-items: flex-start; flex-wrap: wrap; } }

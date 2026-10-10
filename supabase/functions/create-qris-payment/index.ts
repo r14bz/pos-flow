@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import QRCode from 'npm:qrcode@1.5.4'
+import { decryptCredential } from '../_shared/qris-crypto.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -15,10 +16,8 @@ Deno.serve(async (req) => {
 
   let saleId: string | null = null
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const serverKey = Deno.env.get('MIDTRANS_SERVER_KEY')
-  if (!serverKey) return response({ error: 'MIDTRANS_SERVER_KEY belum dikonfigurasi. Hubungkan akun merchant Midtrans terlebih dahulu.' }, 503)
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}').default
 
   try {
     const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
@@ -39,6 +38,21 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(discount) || discount < 0) return response({ error: 'Diskon tidak valid.' }, 400)
     if (!['gopay', 'airpay_shopee'].includes(acquirer)) return response({ error: 'Acquirer QRIS tidak didukung.' }, 400)
 
+    // Every store uses its own merchant credentials. The secret is decrypted only inside this server function.
+    const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+    const { data: settings, error: settingsError } = await userClient.from('store_qris_settings')
+      .select('mode,provider_merchant_id,provider_is_production,dynamic_status')
+      .eq('store_id', storeId).maybeSingle()
+    if (settingsError) throw settingsError
+    if (!settings || !['dynamic', 'both'].includes(settings.mode) || settings.dynamic_status !== 'connected') {
+      return response({ error: 'QRIS dinamis belum diaktifkan untuk toko ini. Buka Pengaturan Toko → Pembayaran QRIS.' }, 409)
+    }
+    const { data: credential, error: credentialError } = await admin.from('store_qris_credentials')
+      .select('provider_server_key_ciphertext,provider_server_key_iv').eq('store_id', storeId).maybeSingle()
+    if (credentialError) throw credentialError
+    if (!credential) return response({ error: 'Kredensial merchant untuk toko ini belum tersimpan.' }, 503)
+    const serverKey = await decryptCredential(credential.provider_server_key_ciphertext, credential.provider_server_key_iv)
+
     // The database RPC checks membership, validates each product and price, and reserves stock atomically.
     const { data: pending, error: pendingError } = await userClient.rpc('create_pending_sale', {
       p_store_id: storeId,
@@ -47,12 +61,16 @@ Deno.serve(async (req) => {
     })
     if (pendingError) throw pendingError
     saleId = String(pending.sale_id)
+    const providerOrderId = `TF-${saleId}`
+    const { error: orderUpdateError } = await admin.from('sales').update({ qris_mode: 'dynamic', provider_order_id: providerOrderId })
+      .eq('id', saleId).eq('store_id', storeId).eq('status', 'pending')
+    if (orderUpdateError) throw orderUpdateError
 
-    const isProduction = Deno.env.get('MIDTRANS_IS_PRODUCTION') === 'true'
+    const isProduction = settings.provider_is_production === true
     const apiBase = isProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com'
     const requestBody = {
       payment_type: 'qris',
-      transaction_details: { order_id: pending.receipt_no, gross_amount: Math.round(Number(pending.total)) },
+      transaction_details: { order_id: providerOrderId, gross_amount: Math.round(Number(pending.total)) },
       customer_details: { email: user.email || 'customer@tokoflow.local', first_name: String(user.user_metadata?.full_name || 'Pelanggan').slice(0, 50) },
       qris: { acquirer },
       custom_expiry: { expiry_duration: 15, unit: 'minute' },
@@ -92,7 +110,6 @@ Deno.serve(async (req) => {
       ? await QRCode.toDataURL(String(payment.qr_string), { margin: 1, width: 320 })
       : qrUrl
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
-    const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
     const { error: updateError } = await admin.from('sales').update({
       provider_transaction_id: String(payment.transaction_id),
       provider_status: String(payment.transaction_status || 'pending'),
@@ -110,7 +127,7 @@ Deno.serve(async (req) => {
       subtotal: Number(pending.subtotal),
       discount: Number(pending.discount),
       expires_at: expiresAt,
-      order_id: payment.order_id,
+      order_id: providerOrderId,
       transaction_id: payment.transaction_id,
       transaction_status: payment.transaction_status,
       qr_url: qrImageUrl,
