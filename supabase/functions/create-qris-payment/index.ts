@@ -82,6 +82,14 @@ Deno.serve(async (req) => {
     })
     const payment = await paymentRes.json()
     if (!paymentRes.ok || !payment.transaction_id) {
+      // Log only gateway status/error fields. Never log credentials or Authorization headers.
+      console.error('[qris-diagnostic] Midtrans charge rejected', JSON.stringify({
+        http_status: paymentRes.status,
+        status_code: payment.status_code ?? null,
+        status_message: payment.status_message ?? null,
+        validation_messages: payment.validation_messages ?? null,
+        message: payment.message ?? null,
+      }))
       const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
       await admin.rpc('finalize_qris_payment', {
         p_sale_id: saleId,
@@ -134,6 +142,10 @@ Deno.serve(async (req) => {
       qr_string: payment.qr_string || null,
     })
   } catch (err) {
+    console.error('[qris-diagnostic] Payment function failed', JSON.stringify({
+      error_name: err instanceof Error ? err.name : 'UnknownError',
+      error_message: err instanceof Error ? err.message : 'Unexpected error',
+    }))
     if (saleId) {
       try {
         const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
