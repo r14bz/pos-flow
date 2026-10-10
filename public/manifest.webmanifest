@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "TokoFlow POS",
+  "short_name": "TokoFlow",
+  "description": "Kasir dan inventaris multi-toko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f8fc",
+  "theme_color": "#f7f8fc",
+  "icons": [
+    {"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

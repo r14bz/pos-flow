@@ -1,0 +1,16 @@
+project_id = "tokoflow-pos"
+
+[functions.create-qris-payment]
+verify_jwt = true
+
+[functions.invite-employee]
+verify_jwt = true
+
+[functions.notify-low-stock]
+verify_jwt = true
+
+[functions.midtrans-webhook]
+verify_jwt = false
+
+[functions.daily-report]
+verify_jwt = false

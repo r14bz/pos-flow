@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/cashier", "destination": "/" }
+  ],
+  "crons": [
+    { "path": "/api/cron/daily-report", "schedule": "5 17 * * *" }
+  ]
+}
