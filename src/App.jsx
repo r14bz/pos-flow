@@ -20,7 +20,7 @@ import * as XLSX from 'xlsx'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
-  { key: 'cashier', label: 'Kasir', icon: ShoppingCart, roles: ['owner', 'manager', 'cashier'] },
+  { key: 'cashier', label: 'Kasir', icon: ShoppingCart, roles: ['owner', 'cashier'] },
   { key: 'inventory', label: 'Inventaris', icon: Boxes, roles: ['owner', 'manager', 'inventory'] },
   { key: 'transactions', label: 'Transaksi', icon: ReceiptText, roles: ['owner', 'manager', 'cashier', 'viewer'] },
   { key: 'reports', label: 'Laporan', icon: BarChart3, roles: ['owner', 'manager', 'viewer'] },
@@ -63,8 +63,10 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [storeName, setStoreName] = useState('')
+  const [storeCode, setStoreCode] = useState('')
+  const [username, setUsername] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName }) }
+  const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName, storeCode, username }) }
   return <div className="auth-screen">
     <section className="auth-story">
       <div className="auth-story-inner">
@@ -89,21 +91,25 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
         <div className="auth-form-heading">
           <span className="auth-greeting-icon"><Store size={21} /></span>
           <div className="eyebrow">RUANG KERJA ANDA</div>
-          <h2>{mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan TokoFlow POS.'}</p>
+          <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
+          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan TokoFlow POS.'}</p>
         </div>
         <form onSubmit={submit} className="auth-form">
           {mode === 'signup' && <>
             <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
             <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
           </>}
-          <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>
+          {mode === 'employee' ? <>
+            <label>Kode toko (ID toko)<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" required /></label>
+            <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
+          </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
           <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
           {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
           {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
+          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Masuk sebagai karyawan' : mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
         </form>
-        <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>
+        {mode !== 'employee' && <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>}
+        <div className="auth-switch"><button onClick={() => { setMode(mode === 'employee' ? 'login' : 'employee'); setError('') }}>{mode === 'employee' ? 'Kembali ke login pemilik' : 'Login sebagai karyawan'}</button></div>
         <div className="auth-separator"><span /> <small>ATAU COBA DULU</small> <span /></div>
         <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
         <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
@@ -249,7 +255,9 @@ function App() {
   const [reportDate, setReportDate] = useState(todayISO())
   const [savingForm, setSavingForm] = useState(false)
   const [productDraft, setProductDraft] = useState({ name: '', sku: '', barcode: '', category: 'Minuman', price: '', cost: '', stock: '', min_stock: '5', unit: 'pcs' })
-  const [employeeDraft, setEmployeeDraft] = useState({ name: '', email: '', role: 'cashier' })
+  const [employeeDraft, setEmployeeDraft] = useState({ name: '', username: '', password: '', roles: ['cashier'] })
+  const [employeeResetPassword, setEmployeeResetPassword] = useState('')
+  const [employeeRolesDraft, setEmployeeRolesDraft] = useState([])
   const [stockDraft, setStockDraft] = useState({ product_id: '', qty_delta: '1', note: '' })
   const [storeDraft, setStoreDraft] = useState({ name: '', city: '' })
   const [priceDraft, setPriceDraft] = useState({ product_id: '', price: '' })
@@ -283,6 +291,33 @@ function App() {
     return () => { window.removeEventListener('beforeinstallprompt', onInstall); window.removeEventListener('popstate', onPop); listener?.subscription?.unsubscribe() }
   }, [])
 
+  // Resetting an employee password revokes their existing session server-side.
+  // Poll the session validity RPC so an already-open app also signs out promptly.
+  useEffect(() => {
+    const isEmployeeSession = Boolean(session?.user?.user_metadata?.employee_account)
+    if (!supabase || !session?.user?.id || !isEmployeeSession || demo) return
+    let active = true
+    let checking = false
+    const checkSession = async () => {
+      if (checking || !active) return
+      checking = true
+      try {
+        const { data, error } = await supabase.rpc('employee_session_is_valid')
+        if (active && !error && data === false) {
+          await supabase.auth.signOut({ scope: 'local' })
+          if (active) showToast('Sesi Anda telah dicabut. Silakan masuk kembali dengan kata sandi terbaru.', 'error')
+        }
+      } catch {
+        // A transient network/RPC error must not sign out a valid employee.
+      } finally {
+        checking = false
+      }
+    }
+    checkSession()
+    const timer = window.setInterval(checkSession, 10000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [session?.access_token, session?.user?.id, session?.user?.user_metadata?.employee_account, demo])
+
   useEffect(() => {
     if (demo) {
       setStores(demoStores)
@@ -295,9 +330,10 @@ function App() {
     let alive = true
     const hydrate = async () => {
       setLoadingData(true)
-      const [profileRes, memberRes] = await Promise.all([
+      const [profileRes, memberRes, extraRolesRes] = await Promise.all([
         supabase.from('profiles').select('full_name,is_super_admin').eq('id', session.user.id).maybeSingle(),
-        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at)').eq('user_id', session.user.id),
+        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at,owner_id)').eq('user_id', session.user.id),
+        supabase.from('store_membership_roles').select('store_id,role').eq('user_id', session.user.id),
       ])
       if (!alive) return
       if (profileRes.data) setProfile(profileRes.data)
@@ -316,7 +352,8 @@ function App() {
         catch (error) { showToast(`Toko awal belum dapat dibuat: ${error?.message || 'coba lagi dari formulir toko.'}`, 'error') }
         finally { storeProvisionPromise.current = null }
       }
-      const nextStores = memberships.filter(m => m.stores).map(m => ({ ...m.stores, role: m.role }))
+      const extraRoles = extraRolesRes.data || []
+      const nextStores = memberships.filter(m => m.stores).map(m => ({ ...m.stores, role: m.role, roles: [...new Set([m.role, ...extraRoles.filter(r => r.store_id === m.store_id).map(r => r.role)])] }))
       setStores(nextStores)
       setStoreId(current => nextStores.some(s => s.id === current) ? current : (nextStores[0]?.id || ''))
       if (profileRes.data?.is_super_admin) loadAdminSummary()
@@ -344,9 +381,12 @@ function App() {
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
   const currentRole = currentStore?.role || (demo ? 'owner' : 'viewer')
+  const currentRoles = currentStore?.roles || [currentRole]
+  const isStoreOwner = Boolean(demo || (currentStore?.role === 'owner' && currentStore?.owner_id === session?.user?.id) || (currentStore?.role === 'owner' && !session?.user?.user_metadata?.employee_account))
   const isSuperAdmin = Boolean(profile?.is_super_admin || demo)
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'Pemilik Toko'
-  const visibleNav = [...primaryNav, ...secondaryNav].filter(item => item.roles.includes('admin') ? isSuperAdmin : item.roles.includes(currentRole))
+  const canUseCashier = Boolean(demo || isStoreOwner || currentRoles.includes('cashier'))
+  const visibleNav = [...primaryNav, ...secondaryNav].filter(item => item.roles.includes('admin') ? isSuperAdmin : item.roles.some(role => currentRoles.includes(role)))
 
   const loadStoreData = useCallback(async (id = storeId) => {
     if (demo) {
@@ -359,16 +399,24 @@ function App() {
     }
     if (!supabase || !id || !session?.user) { setProducts([]); setSales([]); setEmployees([]); return }
     setLoadingData(true)
-    const [productRes, salesRes, employeeRes] = await Promise.all([
+    const [productRes, salesRes, employeeRes, extraRolesRes] = await Promise.all([
       supabase.from('products').select('*').eq('store_id', id).order('name'),
       supabase.from('sales').select('*,sale_items(*)').eq('store_id', id).order('created_at', { ascending: false }).limit(500),
       supabase.from('employees').select('*').eq('store_id', id).order('name'),
+      supabase.from('store_membership_roles').select('user_id,role').eq('store_id', id),
     ])
     if (productRes.error) showToast(`Inventaris: ${productRes.error.message}`, 'error')
     if (salesRes.error) showToast(`Transaksi: ${salesRes.error.message}`, 'error')
     setProducts((productRes.data || []).map(normaliseProduct))
     setSales((salesRes.data || []).map(normaliseSale))
-    setEmployees(employeeRes.data || [])
+    const extrasByUser = new Map()
+    if (!extraRolesRes.error) (extraRolesRes.data || []).forEach(item => {
+      extrasByUser.set(item.user_id, [...(extrasByUser.get(item.user_id) || []), item.role])
+    })
+    setEmployees((employeeRes.data || []).map(employee => ({
+      ...employee,
+      roles: [...new Set([employee.role, ...(extrasByUser.get(employee.user_id) || [])].filter(Boolean))],
+    })))
     setLoadingData(false)
   }, [demo, storeId, session, showToast])
 
@@ -423,7 +471,7 @@ function App() {
     return () => { alive = false; window.clearInterval(timer) }
   }, [modal?.type, modal?.sale_id, demo, storeId, loadStoreData, showToast])
 
-  const onAuth = async ({ mode, email, password, name, storeName }) => {
+  const onAuth = async ({ mode, email, password, name, storeName, storeCode, username }) => {
     setAuthError('')
     if (!supabase) { setAuthError('Supabase belum dikonfigurasi. Gunakan demo atau lengkapi file .env.'); return }
     setAuthBusy(true)
@@ -437,6 +485,17 @@ function App() {
         } else {
           setAuthError('Pendaftaran berhasil. Periksa email Anda untuk konfirmasi, lalu masuk kembali.')
         }
+      } else if (mode === 'employee') {
+        const cleanStoreId = String(storeCode || '').trim()
+        const cleanUsername = String(username || '').trim().toLowerCase()
+        if (!/^[0-9a-f-]{36}$/i.test(cleanStoreId)) throw new Error('Kode toko tidak valid. Minta ID toko yang benar kepada pemilik.')
+        if (!/^[a-z0-9._-]{3,32}$/.test(cleanUsername)) throw new Error('Username harus 3–32 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.')
+        const employeeEmail = `emp-${cleanUsername}@${cleanStoreId}.employee.invalid`
+        const { data, error } = await supabase.auth.signInWithPassword({ email: employeeEmail, password })
+        if (error) throw new Error('Login gagal. Periksa kode toko, username, dan kata sandi.')
+        const metadata = data.user?.user_metadata || data.session?.user?.user_metadata || {}
+        if (metadata.employee_account !== true || metadata.employee_store_id !== cleanStoreId) { await supabase.auth.signOut(); throw new Error('Akun ini bukan akun karyawan untuk toko tersebut.') }
+        setSession(data.session)
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -459,6 +518,13 @@ function App() {
   }
 
   const navigate = (next) => {
+    if (next === 'cashier' && !canUseCashier) {
+      showToast('Akses kasir tidak tersedia untuk akun ini. Hubungi pemilik toko jika memerlukan izin kasir.', 'error')
+      setPage('dashboard')
+      if (window.location.pathname !== '/') window.history.replaceState({}, '', '/')
+      setSidebarOpen(false)
+      return
+    }
     setPage(next); setSidebarOpen(false); setNotificationOpen(false)
     const path = next === 'cashier' ? '/cashier' : '/'
     if (window.location.pathname !== path) window.history.pushState({ page: next }, '', path)
@@ -506,6 +572,7 @@ function App() {
   const cartItemsForRpc = cart.map(({ product, qty }) => ({ product_id: product.id, qty }))
 
   const checkout = async () => {
+    if (!canUseCashier) return showToast('Akses kasir tidak tersedia untuk akun ini.', 'error')
     if (!cart.length) return showToast('Keranjang masih kosong.', 'error')
     if (!currentStore?.id) return showToast('Pilih atau buat toko terlebih dahulu.', 'error')
     setCheckoutBusy(true)
@@ -553,6 +620,7 @@ function App() {
   }
 
   const confirmDemoQris = async () => {
+    if (!canUseCashier) return showToast('Akses kasir tidak tersedia untuk akun ini.', 'error')
     const sale = {
       id: modal.sale_id, store_id: currentStore.id, receipt_no: modal.receipt_no,
       created_at: new Date().toISOString(), cashier_name: displayName, payment_method: 'qris', status: 'paid',
@@ -644,18 +712,68 @@ function App() {
   const saveEmployee = async (e) => {
     e.preventDefault(); setSavingForm(true)
     try {
-      if (!employeeDraft.name.trim() || !employeeDraft.email.includes('@')) throw new Error('Nama dan email karyawan perlu diisi dengan benar.')
+      if (!employeeDraft.name.trim() || !/^[a-z0-9._-]{3,32}$/.test(employeeDraft.username.trim().toLowerCase()) || employeeDraft.password.length < 8 || !employeeDraft.roles.length) throw new Error('Isi nama, username yang valid, kata sandi minimal 8 karakter, dan pilih peran.')
       if (demo) {
-        setEmployees(current => [...current, { id: `emp-${Date.now()}`, name: employeeDraft.name.trim(), email: employeeDraft.email.trim(), role: employeeDraft.role, status: 'active', last_active: null }])
+        setEmployees(current => [...current, { id: `emp-${Date.now()}`, name: employeeDraft.name.trim(), username: employeeDraft.username.trim().toLowerCase(), email: '', role: employeeDraft.roles[0], roles: employeeDraft.roles, status: 'active', last_active: null }])
       } else {
-        const { data, error } = await supabase.functions.invoke('invite-employee', { body: { store_id: storeId, name: employeeDraft.name.trim(), email: employeeDraft.email.trim(), role: employeeDraft.role } })
+        const { data, error } = await supabase.functions.invoke('manage-employee', { body: { action: 'create', store_id: storeId, name: employeeDraft.name.trim(), username: employeeDraft.username.trim().toLowerCase(), password: employeeDraft.password, roles: employeeDraft.roles } })
         if (error) throw error
         await loadStoreData(storeId)
-        if (data?.invited) showToast('Undangan akses dikirim ke email karyawan.')
+        if (data?.created) showToast(`Akun ${data.username} berhasil dibuat.`)
       }
       setModal(null); showToast(demo ? 'Karyawan demo ditambahkan.' : 'Karyawan berhasil ditambahkan.')
-      setEmployeeDraft({ name: '', email: '', role: 'cashier' })
+      setEmployeeDraft({ name: '', username: '', password: '', roles: ['cashier'] })
     } catch (err) { showToast(err?.message || 'Gagal menambahkan karyawan.', 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const resetEmployeePassword = async (e) => {
+    e.preventDefault()
+    if (!isStoreOwner || !modal?.employee?.username) return showToast('Hanya pemilik toko yang dapat mengatur ulang password.', 'error')
+    if (employeeResetPassword.length < 8) return showToast('Kata sandi harus minimal 8 karakter.', 'error')
+    setSavingForm(true)
+    try {
+      const { error } = await supabase.functions.invoke('manage-employee', { body: { action: 'reset_password', store_id: storeId, username: modal.employee.username, password: employeeResetPassword } })
+      if (error) throw error
+      setModal(null); setEmployeeResetPassword('')
+      showToast('Kata sandi karyawan berhasil diatur ulang.')
+    } catch (err) { showToast(err?.message || 'Gagal mengatur ulang kata sandi.', 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const saveEmployeeRoles = async (e) => {
+    e.preventDefault()
+    if (!isStoreOwner || !modal?.employee?.username) return showToast('Hanya pemilik toko yang dapat mengubah peran.', 'error')
+    if (!employeeRolesDraft.length) return showToast('Pilih setidaknya satu peran.', 'error')
+    setSavingForm(true)
+    try {
+      if (demo) {
+        setEmployees(current => current.map(employee => employee.username === modal.employee.username ? { ...employee, role: employeeRolesDraft[0], roles: employeeRolesDraft } : employee))
+      } else {
+        const { error } = await supabase.functions.invoke('manage-employee', { body: { action: 'update_roles', store_id: storeId, username: modal.employee.username, roles: employeeRolesDraft } })
+        if (error) throw error
+        await loadStoreData(storeId)
+      }
+      setModal(null)
+      showToast('Peran karyawan berhasil diperbarui.')
+    } catch (err) { showToast(err?.message || 'Gagal mengubah peran karyawan.', 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const deleteEmployee = async () => {
+    if (!isStoreOwner || !modal?.employee?.username) return showToast('Hanya pemilik toko yang dapat menghapus akun karyawan.', 'error')
+    setSavingForm(true)
+    try {
+      if (demo) {
+        setEmployees(current => current.filter(employee => employee.username !== modal.employee.username))
+      } else {
+        const { error } = await supabase.functions.invoke('manage-employee', { body: { action: 'delete', store_id: storeId, username: modal.employee.username } })
+        if (error) throw error
+        await loadStoreData(storeId)
+      }
+      setModal(null)
+      showToast('Akun karyawan berhasil dihapus dari toko.')
+    } catch (err) { showToast(err?.message || 'Gagal menghapus akun karyawan.', 'error') }
     finally { setSavingForm(false) }
   }
 
@@ -784,6 +902,7 @@ function App() {
   </>
 
   const renderCashier = () => {
+    if (!canUseCashier) return <EmptyState icon={LockKeyhole} title="Akses kasir dibatasi" text="Akun Anda tidak memiliki peran Kasir. Hubungi pemilik toko jika akses transaksi memang diperlukan." action={<button className="button button-secondary" onClick={() => navigate('dashboard')}>Kembali ke ringkasan</button>} />
     const query = cartSearch.trim().toLowerCase()
     const productsForSale = products.filter(p => (cartCategory === 'Semua' || p.category === cartCategory) && (!query || [p.name, p.sku, p.barcode].some(x => String(x || '').toLowerCase().includes(query))))
     return <div className="cashier-layout">
@@ -843,9 +962,9 @@ function App() {
   }
 
   const renderEmployees = () => <>
-    <PageTitle eyebrow="TIM & PERIZINAN" title="Manajemen karyawan" description="Atur siapa yang dapat mengakses kasir, stok, dan laporan." actions={<button className="button button-primary" onClick={() => { setEmployeeDraft({ name: '', email: '', role: 'cashier' }); setModal({ type: 'employee' }) }}><Plus size={17} /> Tambah karyawan</button>} />
+    <PageTitle eyebrow="TIM & PERIZINAN" title="Manajemen karyawan" description="Atur siapa yang dapat mengakses kasir, stok, dan laporan." actions={isStoreOwner && <button className="button button-primary" onClick={() => { setEmployeeDraft({ name: '', username: '', password: '', roles: ['cashier'] }); setModal({ type: 'employee' }) }}><Plus size={17} /> Tambah karyawan</button>} />
     <div className="employee-role-cards"><div><span className="role-card-icon owner"><ShieldCheck size={19} /></span><section><strong>Pemilik</strong><small>Akses penuh dan pengaturan toko</small></section><b>{employees.filter(e => e.role === 'owner').length || (currentRole === 'owner' ? 1 : 0)}</b></div><div><span className="role-card-icon manager"><SlidersHorizontal size={19} /></span><section><strong>Manajer</strong><small>Transaksi, stok, dan laporan</small></section><b>{employees.filter(e => e.role === 'manager').length}</b></div><div><span className="role-card-icon cashier"><ShoppingCart size={19} /></span><section><strong>Kasir</strong><small>Transaksi dan struk penjualan</small></section><b>{employees.filter(e => e.role === 'cashier').length}</b></div><div><span className="role-card-icon inventory"><Package size={19} /></span><section><strong>Inventaris</strong><small>Barang, harga, dan stok</small></section><b>{employees.filter(e => e.role === 'inventory').length}</b></div></div>
-    <section className="panel employee-panel"><div className="panel-heading"><div><h3>Anggota tim</h3><p>{employees.length + (currentRole === 'owner' && !employees.some(e => e.role === 'owner') ? 1 : 0)} anggota terdaftar di {currentStore?.name}</p></div><span className="access-control-label"><LockKeyhole size={14} /> Akses berbasis peran</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama karyawan</th><th>Email</th><th>Peran akses</th><th>Status</th><th>Aktivitas terakhir</th><th /></tr></thead><tbody>{(currentRole === 'owner' && !employees.some(e => e.role === 'owner') ? [{ id: 'owner-self', name: displayName, email: session?.user?.email || 'Akun pemilik', role: 'owner', status: 'active', last_active: new Date().toISOString() }, ...employees] : employees).map((employee, index) => <tr key={employee.id || employee.user_id || index}><td><div className="employee-name-cell"><span className={`avatar avatar-${employee.role}`}>{initials(employee.name)}</span><div><strong>{employee.name}</strong>{employee.role === 'owner' && <small>Pemilik akun</small>}</div></div></td><td>{employee.email || '—'}</td><td><span className={`role-pill ${employee.role}`}>{roleLabel(employee.role)}</span></td><td><StatusPill status={employee.status || 'active'} /></td><td>{employee.last_active ? formatDate(employee.last_active, { year: 'numeric' }) : 'Belum aktif'}</td><td><button className="icon-button tiny" aria-label="Info karyawan" onClick={() => showToast(`${employee.name} — ${roleLabel(employee.role)}. Pengubahan akun dilakukan melalui undangan akses.`, 'info')}><MoreHorizontal size={18} /></button></td></tr>)}</tbody></table></div>{!employees.length && currentRole !== 'owner' && <EmptyState icon={Users} title="Belum ada anggota" text="Tambahkan karyawan untuk memberi akses berdasarkan peran." action={<button className="button button-primary button-sm" onClick={() => setModal({ type: 'employee' })}><Plus size={15} /> Tambah karyawan</button>} />}
+    <section className="panel employee-panel"><div className="panel-heading"><div><h3>Anggota tim</h3><p>{employees.length + (currentRole === 'owner' && !employees.some(e => e.role === 'owner') ? 1 : 0)} anggota terdaftar di {currentStore?.name}</p></div><span className="access-control-label"><LockKeyhole size={14} /> Akses berbasis peran</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama karyawan</th><th>Username</th><th>Peran akses</th><th>Status</th><th>Aktivitas terakhir</th><th /></tr></thead><tbody>{(currentRole === 'owner' && !employees.some(e => e.role === 'owner') ? [{ id: 'owner-self', name: displayName, email: session?.user?.email || 'Akun pemilik', role: 'owner', status: 'active', last_active: new Date().toISOString() }, ...employees] : employees).map((employee, index) => <tr key={employee.id || employee.user_id || index}><td><div className="employee-name-cell"><span className={`avatar avatar-${employee.role}`}>{initials(employee.name)}</span><div><strong>{employee.name}</strong>{employee.role === 'owner' && <small>Pemilik akun</small>}</div></div></td><td>{employee.username || employee.email || '—'}</td><td><span className={`role-pill ${employee.role}`}>{(employee.roles || [employee.role]).map(roleLabel).join(' + ')}</span></td><td><StatusPill status={employee.status || 'active'} /></td><td>{employee.last_active ? formatDate(employee.last_active, { year: 'numeric' }) : 'Belum aktif'}</td><td>{isStoreOwner && employee.username && <div className="employee-row-actions"><button className="icon-button tiny" aria-label={`Ubah peran ${employee.name}`} title="Ubah peran" onClick={() => { setEmployeeRolesDraft(employee.roles || [employee.role].filter(role => role !== 'owner')); setModal({ type: 'employee-roles', employee }) }}><Pencil size={16} /></button><button className="icon-button tiny" aria-label={`Atur ulang kata sandi ${employee.name}`} title="Atur ulang kata sandi" onClick={() => { setEmployeeResetPassword(''); setModal({ type: 'employee-reset', employee }) }}><KeyRound size={17} /></button><button className="icon-button tiny" aria-label={`Hapus akun ${employee.name}`} title="Hapus akun karyawan" onClick={() => setModal({ type: 'employee-delete', employee })}><Trash2 size={16} /></button></div>}</td></tr>)}</tbody></table></div>{!employees.length && currentRole !== 'owner' && <EmptyState icon={Users} title="Belum ada anggota" text="Tambahkan karyawan untuk memberi akses berdasarkan peran." action={<button className="button button-primary button-sm" onClick={() => setModal({ type: 'employee' })}><Plus size={15} /> Tambah karyawan</button>} />}
       <div className="role-permission-note"><ShieldCheck size={18} /><div><strong>Setiap peran memiliki batas akses berbeda</strong><p>Kasir hanya memproses transaksi; inventaris mengelola barang dan stok; manajer mengakses laporan dan tim; pemilik mengatur seluruh toko. Data antartoko tetap dipisahkan oleh kebijakan database.</p></div></div></section>
   </>
 
@@ -897,7 +1016,7 @@ function App() {
 
   const renderSettings = () => <>
     <PageTitle eyebrow="KONFIGURASI" title="Pengaturan toko" description="Kelola informasi toko, perangkat, dan integrasi yang digunakan." />
-    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><div className="settings-form-grid"><label>Nama toko<input value={currentStore?.name || ''} readOnly /></label><label>Kota / lokasi<input value={currentStore?.city || ''} readOnly placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label></div><div className="settings-note"><LockKeyhole size={15} /> Untuk mengubah informasi toko, gunakan konfigurasi akun yang memiliki akses pemilik.</div><button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button></section>
+    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><div className="settings-form-grid"><label>Nama toko<input value={currentStore?.name || ''} readOnly /></label><label>Kota / lokasi<input value={currentStore?.city || ''} readOnly placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label></div><div className="settings-note"><LockKeyhole size={15} /> Untuk mengubah informasi toko, gunakan konfigurasi akun yang memiliki akses pemilik.</div><label className="qris-field">Kode toko untuk login karyawan<input value={currentStore?.id || ''} readOnly onFocus={e => e.target.select()} /><small>Bagikan ID ini kepada karyawan agar mereka bisa masuk dengan username masing-masing.</small></label>{isStoreOwner && <button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak browser.</p></section>
       <section className="panel settings-section qris-settings-panel"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Atur metode pembayaran khusus toko aktif</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (qrisSavedSettings ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : qrisSavedSettings ? 'Terkonfigurasi' : 'Belum diatur'}</span></div>
         {demo ? <div className="settings-note"><KeyRound size={15} /> Mode demo tidak menyimpan kredensial merchant atau menerima pembayaran nyata. Keluar dari demo dan hubungkan Supabase untuk mengatur QRIS.</div> : <>
@@ -928,7 +1047,7 @@ function App() {
     {sidebarOpen && <button className="mobile-scrim" aria-label="Tutup menu" onClick={() => setSidebarOpen(false)} />}
     <aside className="sidebar">
       <div className="sidebar-brand-row"><Logo /><button className="sidebar-close icon-button" onClick={() => setSidebarOpen(false)} aria-label="Tutup navigasi"><X size={18} /></button></div>
-      <button className="store-switcher" onClick={() => { if (stores.length > 1) setModal({ type: 'stores' }); else { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) } }}><span className="store-avatar">{initials(currentStore?.name || 'TF')}</span><span className="store-switcher-text"><small>WORKSPACE</small><strong>{currentStore?.name || 'Pilih toko'}</strong><em>{currentStore?.city || 'Lokasi utama'}</em></span><ChevronDown size={16} /></button>
+      <button className="store-switcher" onClick={() => { if (stores.length > 1) setModal({ type: 'stores' }); else if (isStoreOwner) { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) } }}><span className="store-avatar">{initials(currentStore?.name || 'TF')}</span><span className="store-switcher-text"><small>WORKSPACE</small><strong>{currentStore?.name || 'Pilih toko'}</strong><em>{currentStore?.city || 'Lokasi utama'}</em></span><ChevronDown size={16} /></button>
       <div className="nav-section-label">MENU UTAMA</div><nav className="main-nav">{visibleNav.filter(i => i.key !== 'settings' && i.key !== 'admin').map(item => <button key={item.key} className={`nav-item ${page === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><item.icon size={19} strokeWidth={page === item.key ? 2.2 : 1.8} /><span>{item.label}</span>{item.key === 'inventory' && lowStockProducts.length > 0 && <i className="nav-count">{lowStockProducts.length}</i>}{page === item.key && <i className="nav-active-mark" />}</button>)}</nav>
       <div className="nav-section-label nav-section-secondary">PREFERENSI</div><nav className="main-nav">{visibleNav.filter(i => i.key === 'settings' || i.key === 'admin').map(item => <button key={item.key} className={`nav-item ${page === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><item.icon size={19} strokeWidth={page === item.key ? 2.2 : 1.8} /><span>{item.label}</span>{page === item.key && <i className="nav-active-mark" />}</button>)}</nav>
       <div className="sidebar-bottom"><div className="sync-status"><span className="sync-icon"><Cloud size={17} /></span><span><strong>{demo ? 'Mode demo aktif' : 'Cloud sync aktif'}</strong><small><i /> {demo ? 'Data contoh lokal' : 'Semua data tersinkron'}</small></span></div><button className="sidebar-help" onClick={() => showToast('Bantuan: baca README proyek untuk panduan integrasi dan deployment.', 'info')}><span><CircleHelp size={18} /></span><div><strong>Butuh bantuan?</strong><small>Pusat bantuan TokoFlow</small></div><ExternalLink size={14} /></button><div className="sidebar-user"><span className="user-avatar">{initials(displayName)}</span><div className="sidebar-user-details"><strong>{displayName}</strong><small>{roleLabel(currentRole)}{demo ? ' · Demo' : ''}</small></div><button className="icon-button logout-icon" onClick={signOut} aria-label="Keluar" title="Keluar"><LogOut size={17} /></button></div></div>
@@ -968,11 +1087,18 @@ function App() {
 
     {modal?.type === 'stock' && <Modal title="Penyesuaian stok" subtitle={modal.product?.name} onClose={() => setModal(null)}><form className="form-stack" onSubmit={saveStock}><div className="stock-adjust-info"><ProductVisual product={modal.product || {}} large /><span><small>Stok saat ini</small><strong>{modal.product?.stock} {modal.product?.unit || 'unit'}</strong></span><span><small>Batas minimum</small><strong>{modal.product?.min_stock ?? 5} {modal.product?.unit || 'unit'}</strong></span></div><label>Perubahan jumlah stok<div className="field-with-stepper"><button type="button" onClick={() => setStockDraft({ ...stockDraft, qty_delta: String(Number(stockDraft.qty_delta || 0) - 1) })}><Minus size={16} /></button><input type="number" step="1" value={stockDraft.qty_delta} onChange={e => setStockDraft({ ...stockDraft, qty_delta: e.target.value })} required /><button type="button" onClick={() => setStockDraft({ ...stockDraft, qty_delta: String(Number(stockDraft.qty_delta || 0) + 1) })}><Plus size={16} /></button></div><small className="label-helper">Gunakan angka positif untuk stok masuk dan negatif untuk stok keluar.</small></label><label>Catatan penyesuaian<input value={stockDraft.note} onChange={e => setStockDraft({ ...stockDraft, note: e.target.value })} placeholder="Contoh: Stok opname / barang rusak" /></label><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan stok</button></div></form></Modal>}
 
-    {modal?.type === 'employee' && <Modal title="Undang karyawan" subtitle="Berikan akses toko sesuai tanggung jawabnya." onClose={() => setModal(null)}><form className="form-stack" onSubmit={saveEmployee}><label>Nama lengkap<input autoFocus value={employeeDraft.name} onChange={e => setEmployeeDraft({ ...employeeDraft, name: e.target.value })} placeholder="Nama karyawan" required /></label><label>Email karyawan<input type="email" value={employeeDraft.email} onChange={e => setEmployeeDraft({ ...employeeDraft, email: e.target.value })} placeholder="karyawan@email.com" required /></label><label>Peran akses<select value={employeeDraft.role} onChange={e => setEmployeeDraft({ ...employeeDraft, role: e.target.value })}><option value="cashier">Kasir — transaksi dan struk</option><option value="inventory">Inventaris — stok dan barang</option><option value="manager">Manajer — operasional dan laporan</option><option value="viewer">Lihat saja — akses laporan</option></select></label><div className="role-info-box"><ShieldCheck size={17} /><p>Di mode produksi, karyawan akan menerima undangan login. Izin database tetap menentukan data yang boleh mereka akses.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Send size={16} />} Undang karyawan</button></div></form></Modal>}
+    {modal?.type === 'employee' && <Modal title="Buat akun karyawan" subtitle="Email tidak diperlukan. Username berlaku di toko ini." onClose={() => setModal(null)}><form className="form-stack" onSubmit={saveEmployee}><label>Nama lengkap<input autoFocus value={employeeDraft.name} onChange={e => setEmployeeDraft({ ...employeeDraft, name: e.target.value })} placeholder="Nama karyawan" required /></label><label>Username<input value={employeeDraft.username} onChange={e => setEmployeeDraft({ ...employeeDraft, username: e.target.value.toLowerCase() })} placeholder="contoh: budi.kasir" minLength={3} maxLength={32} pattern="[a-z0-9._-]{3,32}" required /></label><label>Kata sandi awal<input type="password" value={employeeDraft.password} onChange={e => setEmployeeDraft({ ...employeeDraft, password: e.target.value })} placeholder="Minimal 8 karakter" minLength={8} autoComplete="new-password" required /></label><fieldset className="employee-role-checkboxes"><legend>Peran akses (bisa lebih dari satu)</legend>{[['cashier','Kasir — transaksi dan struk'],['inventory','Inventaris — stok dan barang'],['manager','Manajer — operasional dan laporan'],['viewer','Lihat saja — akses laporan']].map(([role,label]) => <label key={role}><input type="checkbox" checked={employeeDraft.roles.includes(role)} onChange={e => setEmployeeDraft(current => ({ ...current, roles: e.target.checked ? [...new Set([...current.roles, role])] : current.roles.filter(r => r !== role) }))} />{label}</label>)}</fieldset><div className="role-info-box"><ShieldCheck size={17} /><p>Karyawan masuk dengan ID toko, username, dan kata sandi. Jika lupa kata sandi, hubungi pemilik untuk mengatur ulang.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Buat akun</button></div></form></Modal>}
+
+
+    {modal?.type === 'employee-roles' && <Modal title="Ubah peran karyawan" subtitle={`Pilih akses untuk ${modal.employee?.name || modal.employee?.username || 'karyawan'}.`} onClose={() => setModal(null)}><form className="form-stack" onSubmit={saveEmployeeRoles}><fieldset className="employee-role-checkboxes"><legend>Peran akses (bisa lebih dari satu)</legend>{[['cashier','Kasir — transaksi dan struk'],['inventory','Inventaris — stok dan barang'],['manager','Manajer — operasional dan laporan'],['viewer','Lihat saja — akses laporan']].map(([role,label]) => <label key={role}><input type="checkbox" checked={employeeRolesDraft.includes(role)} onChange={e => setEmployeeRolesDraft(current => e.target.checked ? [...new Set([...current, role])] : current.filter(r => r !== role))} />{label}</label>)}</fieldset><div className="role-info-box"><ShieldCheck size={17} /><p>Perubahan peran memengaruhi akses karyawan pada toko ini. Pilih minimal satu peran.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan peran</button></div></form></Modal>}
+
+    {modal?.type === 'employee-delete' && <Modal title="Hapus akun karyawan?" subtitle={`Akun ${modal.employee?.username || ''} akan dihapus dari toko ini.`} onClose={() => setModal(null)}><div className="form-stack"><div className="role-info-box"><AlertTriangle size={18} /><p>Tindakan ini tidak dapat dibatalkan. Jika akun tidak terhubung ke toko lain, akun login karyawan juga akan dihapus. Riwayat transaksi tidak dihapus oleh tindakan ini.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="button" className="button button-primary" disabled={savingForm} onClick={deleteEmployee}>{savingForm ? <span className="spinner" /> : <Trash2 size={16} />} Hapus akun</button></div></div></Modal>}
+
+    {modal?.type === 'employee-reset' && <Modal title="Atur ulang kata sandi" subtitle={`Akun karyawan: ${modal.employee?.username || ''}. Kata sandi lama tidak dapat dilihat.`} onClose={() => setModal(null)}><form className="form-stack" onSubmit={resetEmployeePassword}><label>Kata sandi baru<input type="password" value={employeeResetPassword} onChange={e => setEmployeeResetPassword(e.target.value)} placeholder="Minimal 8 karakter" minLength={8} autoComplete="new-password" required /></label><div className="role-info-box"><KeyRound size={17} /><p>Berikan kata sandi baru ini langsung kepada karyawan secara aman.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan kata sandi</button></div></form></Modal>}
 
     {modal?.type === 'store' && <Modal title="Tambah toko baru" subtitle="Setiap toko memiliki inventaris dan laporan terpisah." onClose={() => setModal(null)}><form className="form-stack" onSubmit={createStore}><label>Nama toko<input autoFocus value={storeDraft.name} onChange={e => setStoreDraft({ ...storeDraft, name: e.target.value })} placeholder="Contoh: Cabang Selatan" required /></label><label>Kota / lokasi<input value={storeDraft.city} onChange={e => setStoreDraft({ ...storeDraft, city: e.target.value })} placeholder="Contoh: Bekasi" /></label><div className="role-info-box"><LockKeyhole size={17} /><p>Barang dan transaksi toko baru tidak otomatis bercampur dengan toko yang sudah ada.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Plus size={16} />} Buat toko</button></div></form></Modal>}
 
-    {modal?.type === 'stores' && <Modal title="Pilih toko aktif" subtitle="Dashboard menampilkan data untuk toko yang dipilih." onClose={() => setModal(null)}><div className="store-picker-list">{stores.map(s => <button key={s.id} className={s.id === storeId ? 'active' : ''} onClick={() => { switchStore(s.id); setModal(null) }}><span className="store-avatar">{initials(s.name)}</span><span><strong>{s.name}</strong><small>{s.city || 'Lokasi belum diatur'} · {roleLabel(s.role)}</small></span>{s.id === storeId ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}</button>)}</div><button className="button button-secondary button-wide" onClick={() => { setModal(null); setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button></Modal>}
+    {modal?.type === 'stores' && <Modal title="Pilih toko aktif" subtitle="Dashboard menampilkan data untuk toko yang dipilih." onClose={() => setModal(null)}><div className="store-picker-list">{stores.map(s => <button key={s.id} className={s.id === storeId ? 'active' : ''} onClick={() => { switchStore(s.id); setModal(null) }}><span className="store-avatar">{initials(s.name)}</span><span><strong>{s.name}</strong><small>{s.city || 'Lokasi belum diatur'} · {roleLabel(s.role)}</small></span>{s.id === storeId ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}</button>)}</div>{isStoreOwner && <button className="button button-secondary button-wide" onClick={() => { setModal(null); setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</Modal>}
 
     {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Gunakan kamera belakang atau input kode secara manual." onClose={() => setModal(null)} width="small"><BarcodeScanner onDetected={onBarcodeDetected} onClose={() => setModal(null)} /></Modal>}
 
