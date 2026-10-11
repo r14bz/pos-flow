@@ -96,5 +96,11 @@ Deno.serve(async (req) => {
   if (!existingEmployee?.user_id) return json({ error: 'Akun dengan username tersebut tidak ditemukan di toko ini.' }, 404)
   const { error: resetError } = await admin.auth.admin.updateUserById(existingEmployee.user_id, { password })
   if (resetError) return json({ error: resetError.message }, 400)
-  return json({ password_reset: true, username })
+
+  // Changing a password does not necessarily invalidate already-issued sessions.
+  // Revoke all refresh sessions so the employee must authenticate again.
+  const { error: revokeError } = await admin.auth.admin.signOut(existingEmployee.user_id, 'global')
+  if (revokeError) return json({ error: 'Kata sandi berubah, tetapi sesi lama belum berhasil dicabut. Hubungi administrator sebelum melanjutkan.' }, 500)
+
+  return json({ password_reset: true, sessions_revoked: true, username })
 })
