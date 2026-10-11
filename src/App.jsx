@@ -370,16 +370,24 @@ function App() {
     }
     if (!supabase || !id || !session?.user) { setProducts([]); setSales([]); setEmployees([]); return }
     setLoadingData(true)
-    const [productRes, salesRes, employeeRes] = await Promise.all([
+    const [productRes, salesRes, employeeRes, extraRolesRes] = await Promise.all([
       supabase.from('products').select('*').eq('store_id', id).order('name'),
       supabase.from('sales').select('*,sale_items(*)').eq('store_id', id).order('created_at', { ascending: false }).limit(500),
       supabase.from('employees').select('*').eq('store_id', id).order('name'),
+      supabase.from('store_membership_roles').select('user_id,role').eq('store_id', id),
     ])
     if (productRes.error) showToast(`Inventaris: ${productRes.error.message}`, 'error')
     if (salesRes.error) showToast(`Transaksi: ${salesRes.error.message}`, 'error')
     setProducts((productRes.data || []).map(normaliseProduct))
     setSales((salesRes.data || []).map(normaliseSale))
-    setEmployees(employeeRes.data || [])
+    const extrasByUser = new Map()
+    if (!extraRolesRes.error) (extraRolesRes.data || []).forEach(item => {
+      extrasByUser.set(item.user_id, [...(extrasByUser.get(item.user_id) || []), item.role])
+    })
+    setEmployees((employeeRes.data || []).map(employee => ({
+      ...employee,
+      roles: [...new Set([employee.role, ...(extrasByUser.get(employee.user_id) || [])].filter(Boolean))],
+    })))
     setLoadingData(false)
   }, [demo, storeId, session, showToast])
 
