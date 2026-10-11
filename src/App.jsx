@@ -20,7 +20,7 @@ import * as XLSX from 'xlsx'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
-  { key: 'cashier', label: 'Kasir', icon: ShoppingCart, roles: ['owner', 'manager', 'cashier'] },
+  { key: 'cashier', label: 'Kasir', icon: ShoppingCart, roles: ['owner', 'cashier'] },
   { key: 'inventory', label: 'Inventaris', icon: Boxes, roles: ['owner', 'manager', 'inventory'] },
   { key: 'transactions', label: 'Transaksi', icon: ReceiptText, roles: ['owner', 'manager', 'cashier', 'viewer'] },
   { key: 'reports', label: 'Laporan', icon: BarChart3, roles: ['owner', 'manager', 'viewer'] },
@@ -357,6 +357,7 @@ function App() {
   const isStoreOwner = Boolean(demo || (currentStore?.role === 'owner' && currentStore?.owner_id === session?.user?.id) || (currentStore?.role === 'owner' && !session?.user?.user_metadata?.employee_account))
   const isSuperAdmin = Boolean(profile?.is_super_admin || demo)
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'Pemilik Toko'
+  const canUseCashier = Boolean(demo || isStoreOwner || currentRoles.includes('cashier'))
   const visibleNav = [...primaryNav, ...secondaryNav].filter(item => item.roles.includes('admin') ? isSuperAdmin : item.roles.some(role => currentRoles.includes(role)))
 
   const loadStoreData = useCallback(async (id = storeId) => {
@@ -489,6 +490,13 @@ function App() {
   }
 
   const navigate = (next) => {
+    if (next === 'cashier' && !canUseCashier) {
+      showToast('Akses kasir tidak tersedia untuk akun ini. Hubungi pemilik toko jika memerlukan izin kasir.', 'error')
+      setPage('dashboard')
+      if (window.location.pathname !== '/') window.history.replaceState({}, '', '/')
+      setSidebarOpen(false)
+      return
+    }
     setPage(next); setSidebarOpen(false); setNotificationOpen(false)
     const path = next === 'cashier' ? '/cashier' : '/'
     if (window.location.pathname !== path) window.history.pushState({ page: next }, '', path)
@@ -536,6 +544,7 @@ function App() {
   const cartItemsForRpc = cart.map(({ product, qty }) => ({ product_id: product.id, qty }))
 
   const checkout = async () => {
+    if (!canUseCashier) return showToast('Akses kasir tidak tersedia untuk akun ini.', 'error')
     if (!cart.length) return showToast('Keranjang masih kosong.', 'error')
     if (!currentStore?.id) return showToast('Pilih atau buat toko terlebih dahulu.', 'error')
     setCheckoutBusy(true)
@@ -583,6 +592,7 @@ function App() {
   }
 
   const confirmDemoQris = async () => {
+    if (!canUseCashier) return showToast('Akses kasir tidak tersedia untuk akun ini.', 'error')
     const sale = {
       id: modal.sale_id, store_id: currentStore.id, receipt_no: modal.receipt_no,
       created_at: new Date().toISOString(), cashier_name: displayName, payment_method: 'qris', status: 'paid',
@@ -828,6 +838,7 @@ function App() {
   </>
 
   const renderCashier = () => {
+    if (!canUseCashier) return <EmptyState icon={LockKeyhole} title="Akses kasir dibatasi" text="Akun Anda tidak memiliki peran Kasir. Hubungi pemilik toko jika akses transaksi memang diperlukan." action={<button className="button button-secondary" onClick={() => navigate('dashboard')}>Kembali ke ringkasan</button>} />
     const query = cartSearch.trim().toLowerCase()
     const productsForSale = products.filter(p => (cartCategory === 'Semua' || p.category === cartCategory) && (!query || [p.name, p.sku, p.barcode].some(x => String(x || '').toLowerCase().includes(query))))
     return <div className="cashier-layout">
