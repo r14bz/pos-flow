@@ -34,16 +34,16 @@ Deno.serve(async (req) => {
   const roles = Array.isArray(body.roles) ? [...new Set(body.roles.map(String))] : []
 
   if (!storeId) return json({ error: 'Toko wajib dipilih.' }, 400)
-  if (!['create', 'reset_password'].includes(action)) return json({ error: 'Aksi tidak valid.' }, 400)
+  if (!['create', 'reset_password', 'update_roles', 'delete'].includes(action)) return json({ error: 'Aksi tidak valid.' }, 400)
 
   // Only the actual store owner may manage employee credentials or roles.
   const { data: store, error: storeError } = await admin.from('stores').select('id,owner_id').eq('id', storeId).maybeSingle()
   if (storeError || !store || store.owner_id !== authData.user.id) return json({ error: 'Hanya pemilik toko yang dapat mengelola akun karyawan.' }, 403)
 
   if (!/^[a-z0-9._-]{3,32}$/.test(username)) return json({ error: 'Username harus 3–32 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.' }, 400)
-  if (password.length < 8) return json({ error: 'Kata sandi harus minimal 8 karakter.' }, 400)
+  if ((action === 'create' || action === 'reset_password') && password.length < 8) return json({ error: 'Kata sandi harus minimal 8 karakter.' }, 400)
   if (action === 'create' && !name) return json({ error: 'Nama karyawan wajib diisi.' }, 400)
-  if (action === 'create' && (!roles.length || roles.some(role => !allowedRoles.has(role)))) return json({ error: 'Pilih setidaknya satu peran yang valid.' }, 400)
+  if ((action === 'create' || action === 'update_roles') && (!roles.length || roles.some(role => !allowedRoles.has(role)))) return json({ error: 'Pilih setidaknya satu peran yang valid.' }, 400)
 
   // Stable internal identity; no employee email address is required.
   // Credentials are managed by Supabase Auth and are never stored in plaintext.
@@ -94,6 +94,42 @@ Deno.serve(async (req) => {
   }
 
   if (!existingEmployee?.user_id) return json({ error: 'Akun dengan username tersebut tidak ditemukan di toko ini.' }, 404)
+
+  if (action === 'update_roles') {
+    const { error: membershipError } = await admin.from('store_memberships').update({ role: roles[0] }).eq('store_id', storeId).eq('user_id', existingEmployee.user_id)
+    if (membershipError) return json({ error: membershipError.message }, 400)
+    const { error: employeeError } = await admin.from('employees').update({ role: roles[0] }).eq('store_id', storeId).eq('user_id', existingEmployee.user_id)
+    if (employeeError) return json({ error: employeeError.message }, 400)
+    const { error: clearRolesError } = await admin.from('store_membership_roles').delete().eq('store_id', storeId).eq('user_id', existingEmployee.user_id)
+    if (clearRolesError) return json({ error: clearRolesError.message }, 400)
+    if (roles.length > 1) {
+      const { error: insertRolesError } = await admin.from('store_membership_roles').insert(roles.slice(1).map(role => ({ store_id: storeId, user_id: existingEmployee.user_id, role })))
+      if (insertRolesError) return json({ error: insertRolesError.message }, 400)
+    }
+    return json({ roles_updated: true, username, roles })
+  }
+
+  if (action === 'delete') {
+    const userId = existingEmployee.user_id
+    const { error: extraRolesError } = await admin.from('store_membership_roles').delete().eq('store_id', storeId).eq('user_id', userId)
+    if (extraRolesError) return json({ error: extraRolesError.message }, 400)
+    const { error: employeeDeleteError } = await admin.from('employees').delete().eq('store_id', storeId).eq('user_id', userId)
+    if (employeeDeleteError) return json({ error: employeeDeleteError.message }, 400)
+    const { error: membershipDeleteError } = await admin.from('store_memberships').delete().eq('store_id', storeId).eq('user_id', userId)
+    if (membershipDeleteError) return json({ error: membershipDeleteError.message }, 400)
+    const { data: otherMemberships, error: otherMembershipError } = await admin.from('store_memberships').select('store_id').eq('user_id', userId).limit(1)
+    if (otherMembershipError) return json({ error: 'Keanggotaan toko dihapus, tetapi status akun perlu diperiksa oleh administrator.' }, 500)
+    let authUserDeleted = false
+    if (!otherMemberships?.length) {
+      const { error: revokeError } = await admin.auth.admin.signOut(userId, 'global')
+      if (revokeError) return json({ error: 'Akses toko telah dihapus, tetapi sesi akun belum berhasil dicabut.' }, 500)
+      const { error: authDeleteError } = await admin.auth.admin.deleteUser(userId)
+      if (authDeleteError) return json({ error: 'Akses toko telah dihapus, tetapi akun autentikasi belum berhasil dihapus.' }, 500)
+      authUserDeleted = true
+    }
+    return json({ deleted: true, username, auth_user_deleted: authUserDeleted })
+  }
+
   const { error: resetError } = await admin.auth.admin.updateUserById(existingEmployee.user_id, { password })
   if (resetError) return json({ error: resetError.message }, 400)
 
