@@ -121,8 +121,8 @@ Deno.serve(async (req) => {
     if (otherMembershipError) return json({ error: 'Keanggotaan toko dihapus, tetapi status akun perlu diperiksa oleh administrator.' }, 500)
     let authUserDeleted = false
     if (!otherMemberships?.length) {
-      const { error: revokeError } = await admin.auth.admin.signOut(userId, 'global')
-      if (revokeError) return json({ error: 'Akses toko telah dihapus, tetapi sesi akun belum berhasil dicabut.' }, 500)
+      // Deleting the Auth user is the authoritative cleanup step and removes
+      // the identity instead of calling signOut with a user ID (that API expects a JWT).
       const { error: authDeleteError } = await admin.auth.admin.deleteUser(userId)
       if (authDeleteError) return json({ error: 'Akses toko telah dihapus, tetapi akun autentikasi belum berhasil dihapus.' }, 500)
       authUserDeleted = true
@@ -133,10 +133,10 @@ Deno.serve(async (req) => {
   const { error: resetError } = await admin.auth.admin.updateUserById(existingEmployee.user_id, { password })
   if (resetError) return json({ error: resetError.message }, 400)
 
-  // Changing a password does not necessarily invalidate already-issued sessions.
-  // Revoke all refresh sessions so the employee must authenticate again.
-  const { error: revokeError } = await admin.auth.admin.signOut(existingEmployee.user_id, 'global')
-  if (revokeError) return json({ error: 'Kata sandi berubah, tetapi sesi lama belum berhasil dicabut. Hubungi administrator sebelum melanjutkan.' }, 500)
-
-  return json({ password_reset: true, sessions_revoked: true, username })
+  // The Admin signOut API requires the user's access-token JWT, not their user ID.
+  // Do not report a failed reset after the password has already been changed.
+  // Existing access tokens may remain valid until expiry; refresh-session revocation
+  // needs a separate supported session-management mechanism.
+  return json({ password_reset: true, sessions_revoked: false, username,
+    message: 'Kata sandi berhasil diubah. Sesi yang sudah aktif mungkin tetap berlaku sampai token kedaluwarsa.' })
 })
