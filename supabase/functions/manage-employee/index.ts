@@ -133,10 +133,14 @@ Deno.serve(async (req) => {
   const { error: resetError } = await admin.auth.admin.updateUserById(existingEmployee.user_id, { password })
   if (resetError) return json({ error: resetError.message }, 400)
 
-  // The Admin signOut API requires the user's access-token JWT, not their user ID.
-  // Do not report a failed reset after the password has already been changed.
-  // Existing access tokens may remain valid until expiry; refresh-session revocation
-  // needs a separate supported session-management mechanism.
-  return json({ password_reset: true, sessions_revoked: false, username,
-    message: 'Kata sandi berhasil diubah. Sesi yang sudah aktif mungkin tetap berlaku sampai token kedaluwarsa.' })
+  // Record the cutoff only after the password update succeeds. RLS checks and
+  // the client-side session monitor reject employee sessions created before it.
+  const { error: revokeError } = await admin.from('employee_session_revocations')
+    .upsert({ user_id: existingEmployee.user_id, revoked_before: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (revokeError) {
+    return json({ password_reset: true, sessions_revoked: false, username,
+      message: 'Kata sandi berubah, tetapi pencabutan sesi belum tercatat. Hubungi administrator sebelum karyawan melanjutkan.' }, 500)
+  }
+  return json({ password_reset: true, sessions_revoked: true, username,
+    message: 'Kata sandi berhasil diubah dan sesi lama karyawan dicabut.' })
 })
