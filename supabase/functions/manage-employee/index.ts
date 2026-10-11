@@ -49,12 +49,12 @@ Deno.serve(async (req) => {
   // Credentials are managed by Supabase Auth and are never stored in plaintext.
   const syntheticEmail = `emp-${username}@${storeId}.employee.invalid`
   let targetUser: any = null
-  const { data: page, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  if (listError) return json({ error: 'Tidak dapat memeriksa akun karyawan.' }, 500)
-  targetUser = page.users.find((user: any) => user.email?.toLowerCase() === syntheticEmail) || null
+  const { data: existingEmployee, error: lookupError } = await admin.from('employees').select('user_id,username').eq('store_id', storeId).ilike('username', username).maybeSingle()
+  if (lookupError) return json({ error: 'Tidak dapat memeriksa username karyawan.' }, 500)
+  targetUser = existingEmployee?.user_id ? { id: existingEmployee.user_id } : null
 
   if (action === 'create') {
-    if (targetUser) return json({ error: 'Username tersebut sudah digunakan di toko ini.' }, 409)
+    if (existingEmployee || targetUser) return json({ error: 'Username tersebut sudah digunakan di toko ini.' }, 409)
     const { data, error } = await admin.auth.admin.createUser({
       email: syntheticEmail,
       password,
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     }
 
     const { error: employeeError } = await admin.from('employees').insert({
-      store_id: storeId, user_id: targetUser.id, name, email: syntheticEmail, role: roles[0], status: 'active',
+      store_id: storeId, user_id: targetUser.id, name, email: syntheticEmail, username, role: roles[0], status: 'active',
     })
     if (employeeError) {
       await admin.from('store_membership_roles').delete().eq('store_id', storeId).eq('user_id', targetUser.id)
@@ -94,8 +94,8 @@ Deno.serve(async (req) => {
     return json({ created: true, username, name, roles })
   }
 
-  if (!targetUser) return json({ error: 'Akun dengan username tersebut tidak ditemukan di toko ini.' }, 404)
-  const { error: resetError } = await admin.auth.admin.updateUserById(targetUser.id, { password })
+  if (!existingEmployee?.user_id) return json({ error: 'Akun dengan username tersebut tidak ditemukan di toko ini.' }, 404)
+  const { error: resetError } = await admin.auth.admin.updateUserById(existingEmployee.user_id, { password })
   if (resetError) return json({ error: resetError.message }, 400)
   return json({ password_reset: true, username })
 })
