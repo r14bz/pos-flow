@@ -974,3 +974,13 @@ input, select, textarea { color: var(--ink); }
 .qris-mode-choice small { color: var(--muted); }
 .qris-merchant-name { text-align: center; font-weight: 700; margin: 6px 0 12px; }
 @media (max-width: 640px) { .qris-upload-area { padding: 10px; } .qris-mode-choice { flex-direction: column; } .qris-mode-choice label { align-items: flex-start; flex-wrap: wrap; } }
+
+
+/* Mobile dashboard alignment and employee-role controls */
+.employee-role-checkboxes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; margin: 4px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.employee-role-checkboxes legend { padding: 0 6px; color: var(--ink); font-size: 12px; font-weight: 800; }
+.employee-role-checkboxes label { display: flex; flex-direction: row !important; align-items: center; gap: 11px !important; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 12px; line-height: 1.4; cursor: pointer; }
+.employee-role-checkboxes input[type="checkbox"] { width: 20px !important; height: 20px !important; flex: 0 0 20px; margin: 0; accent-color: var(--accent); }
+.product-visual img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.field-help { color: var(--muted); font-size: 11px; line-height: 1.5; font-weight: 500; }
+@media (max-width: 640px) { .dashboard-grid, .dashboard-grid-secondary { grid-template-columns: minmax(0, 1fr); } .dashboard-grid .panel { min-width: 0; width: 100%; box-sizing: border-box; } .dashboard-grid.dashboard-grid-secondary > .panel > .panel-heading { min-width: 0; padding: 19px 20px 10px 26px !important; margin: 0; box-sizing: border-box; align-items: center; } .dashboard-grid .panel-heading > div { min-width: 0; } .dashboard-grid .panel-heading h3, .dashboard-grid .panel-heading p { overflow-wrap: anywhere; } .dashboard-grid .restock-list, .dashboard-grid .transaction-list { padding-left: 14px; padding-right: 14px; box-sizing: border-box; } .dashboard-grid .panel-heading .text-action { flex: 0 0 auto; } .employee-role-checkboxes { padding: 10px; } .employee-role-checkboxes label { align-items: flex-start; } }
