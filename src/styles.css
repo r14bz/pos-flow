@@ -984,3 +984,14 @@ input, select, textarea { color: var(--ink); }
 .product-visual img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .field-help { color: var(--muted); font-size: 11px; line-height: 1.5; font-weight: 500; }
 @media (max-width: 640px) { .dashboard-grid, .dashboard-grid-secondary { grid-template-columns: minmax(0, 1fr); } .dashboard-grid .panel { min-width: 0; width: 100%; box-sizing: border-box; } .dashboard-grid.dashboard-grid-secondary > .panel > .panel-heading { min-width: 0; padding: 19px 20px 10px 26px !important; margin: 0; box-sizing: border-box; align-items: center; } .dashboard-grid .panel-heading > div { min-width: 0; } .dashboard-grid .panel-heading h3, .dashboard-grid .panel-heading p { overflow-wrap: anywhere; } .dashboard-grid .restock-list, .dashboard-grid .transaction-list { padding-left: 14px; padding-right: 14px; box-sizing: border-box; } .dashboard-grid .panel-heading .text-action { flex: 0 0 auto; } .employee-role-checkboxes { padding: 10px; } .employee-role-checkboxes label { align-items: flex-start; } }
+
+/* Central administrator search and view switcher */
+.admin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; margin-bottom: 18px; }
+.admin-search { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px; color: var(--text-muted, #758094); }
+.admin-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-primary, inherit); font: inherit; }
+.admin-search input:focus-visible { outline: 2px solid var(--accent, #4777e8); outline-offset: 4px; border-radius: 4px; }
+.admin-tabs { display: flex; align-items: center; gap: 5px; padding: 4px; border-radius: 10px; background: var(--surface-muted, #f1f3f7); }
+.admin-tabs button { border: 0; border-radius: 7px; padding: 8px 12px; background: transparent; color: var(--text-secondary, #667085); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.admin-tabs button.active, .admin-tabs button[aria-selected="true"] { background: var(--surface, #fff); color: var(--text-primary, #202939); box-shadow: 0 1px 3px #18223012; }
+.admin-empty-results { padding: 28px 18px; text-align: center; color: var(--text-muted, #758094); font-size: 14px; }
+@media (max-width: 680px) { .admin-toolbar { align-items: stretch; flex-direction: column; } .admin-search { min-width: 0; min-height: 38px; } .admin-tabs { display: grid; grid-template-columns: 1fr 1fr; } .admin-tabs button { white-space: normal; } }
