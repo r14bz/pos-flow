@@ -2,6 +2,11 @@
 -- Existing single-role memberships continue to work unchanged.
 -- Extra roles are stored separately so one employee can hold several roles in one store.
 
+-- Employee usernames are scoped to a store; existing invited employees remain compatible.
+alter table public.employees add column if not exists username text;
+create unique index if not exists employees_store_username_unique
+  on public.employees (store_id, lower(username)) where username is not null;
+
 create table if not exists public.store_membership_roles (
   store_id uuid not null references public.stores(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
