@@ -301,9 +301,10 @@ function App() {
     let alive = true
     const hydrate = async () => {
       setLoadingData(true)
-      const [profileRes, memberRes] = await Promise.all([
+      const [profileRes, memberRes, extraRolesRes] = await Promise.all([
         supabase.from('profiles').select('full_name,is_super_admin').eq('id', session.user.id).maybeSingle(),
-        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at)').eq('user_id', session.user.id),
+        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at,owner_id)').eq('user_id', session.user.id),
+        supabase.from('store_membership_roles').select('store_id,role').eq('user_id', session.user.id),
       ])
       if (!alive) return
       if (profileRes.data) setProfile(profileRes.data)
@@ -322,7 +323,8 @@ function App() {
         catch (error) { showToast(`Toko awal belum dapat dibuat: ${error?.message || 'coba lagi dari formulir toko.'}`, 'error') }
         finally { storeProvisionPromise.current = null }
       }
-      const nextStores = memberships.filter(m => m.stores).map(m => ({ ...m.stores, role: m.role }))
+      const extraRoles = extraRolesRes.data || []
+      const nextStores = memberships.filter(m => m.stores).map(m => ({ ...m.stores, role: m.role, roles: [...new Set([m.role, ...extraRoles.filter(r => r.store_id === m.store_id).map(r => r.role)])] }))
       setStores(nextStores)
       setStoreId(current => nextStores.some(s => s.id === current) ? current : (nextStores[0]?.id || ''))
       if (profileRes.data?.is_super_admin) loadAdminSummary()
@@ -350,10 +352,11 @@ function App() {
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
   const currentRole = currentStore?.role || (demo ? 'owner' : 'viewer')
+  const currentRoles = currentStore?.roles || [currentRole]
   const isStoreOwner = Boolean(demo || (currentStore?.role === 'owner' && currentStore?.owner_id === session?.user?.id) || (currentStore?.role === 'owner' && !session?.user?.user_metadata?.employee_account))
   const isSuperAdmin = Boolean(profile?.is_super_admin || demo)
   const displayName = profile?.full_name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'Pemilik Toko'
-  const visibleNav = [...primaryNav, ...secondaryNav].filter(item => item.roles.includes('admin') ? isSuperAdmin : item.roles.includes(currentRole))
+  const visibleNav = [...primaryNav, ...secondaryNav].filter(item => item.roles.includes('admin') ? isSuperAdmin : item.roles.some(role => currentRoles.includes(role)))
 
   const loadStoreData = useCallback(async (id = storeId) => {
     if (demo) {
