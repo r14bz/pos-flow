@@ -48,10 +48,9 @@ Deno.serve(async (req) => {
   // Stable internal identity; no employee email address is required.
   // Credentials are managed by Supabase Auth and are never stored in plaintext.
   const syntheticEmail = `emp-${username}@${storeId}.employee.invalid`
-  let targetUser: any = null
-  const { data: existingEmployee, error: lookupError } = await admin.from('employees').select('user_id,username').eq('store_id', storeId).ilike('username', username).maybeSingle()
+  const { data: existingEmployee, error: lookupError } = await admin.from('employees').select('user_id,username').eq('store_id', storeId).eq('username', username).maybeSingle()
   if (lookupError) return json({ error: 'Tidak dapat memeriksa username karyawan.' }, 500)
-  targetUser = existingEmployee?.user_id ? { id: existingEmployee.user_id } : null
+  const targetUser = existingEmployee?.user_id ? { id: existingEmployee.user_id } : null
 
   if (action === 'create') {
     if (existingEmployee || targetUser) return json({ error: 'Username tersebut sudah digunakan di toko ini.' }, 409)
@@ -62,33 +61,33 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: name, employee_account: true, employee_store_id: storeId, employee_username: username },
     })
     if (error || !data.user) return json({ error: error?.message || 'Akun karyawan gagal dibuat.' }, 400)
-    targetUser = data.user
+    const createdUser = data.user
 
     const { error: membershipError } = await admin.from('store_memberships').insert({
-      store_id: storeId, user_id: targetUser.id, role: roles[0],
+      store_id: storeId, user_id: createdUser.id, role: roles[0],
     })
     if (membershipError) {
-      await admin.auth.admin.deleteUser(targetUser.id)
+      await admin.auth.admin.deleteUser(createdUser.id)
       return json({ error: membershipError.message }, 400)
     }
 
     if (roles.length > 1) {
-      const extraRoles = roles.slice(1).map(role => ({ store_id: storeId, user_id: targetUser.id, role }))
+      const extraRoles = roles.slice(1).map(role => ({ store_id: storeId, user_id: createdUser.id, role }))
       const { error: rolesError } = await admin.from('store_membership_roles').insert(extraRoles)
       if (rolesError) {
-        await admin.from('store_memberships').delete().eq('store_id', storeId).eq('user_id', targetUser.id)
-        await admin.auth.admin.deleteUser(targetUser.id)
+        await admin.from('store_memberships').delete().eq('store_id', storeId).eq('user_id', createdUser.id)
+        await admin.auth.admin.deleteUser(createdUser.id)
         return json({ error: rolesError.message }, 400)
       }
     }
 
     const { error: employeeError } = await admin.from('employees').insert({
-      store_id: storeId, user_id: targetUser.id, name, email: syntheticEmail, username, role: roles[0], status: 'active',
+      store_id: storeId, user_id: createdUser.id, name, email: syntheticEmail, username, role: roles[0], status: 'active',
     })
     if (employeeError) {
-      await admin.from('store_membership_roles').delete().eq('store_id', storeId).eq('user_id', targetUser.id)
-      await admin.from('store_memberships').delete().eq('store_id', storeId).eq('user_id', targetUser.id)
-      await admin.auth.admin.deleteUser(targetUser.id)
+      await admin.from('store_membership_roles').delete().eq('store_id', storeId).eq('user_id', createdUser.id)
+      await admin.from('store_memberships').delete().eq('store_id', storeId).eq('user_id', createdUser.id)
+      await admin.auth.admin.deleteUser(createdUser.id)
       return json({ error: employeeError.message }, 400)
     }
     return json({ created: true, username, name, roles })
