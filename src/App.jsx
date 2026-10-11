@@ -291,6 +291,33 @@ function App() {
     return () => { window.removeEventListener('beforeinstallprompt', onInstall); window.removeEventListener('popstate', onPop); listener?.subscription?.unsubscribe() }
   }, [])
 
+  // Resetting an employee password revokes their existing session server-side.
+  // Poll the session validity RPC so an already-open app also signs out promptly.
+  useEffect(() => {
+    const isEmployeeSession = Boolean(session?.user?.user_metadata?.employee_account)
+    if (!supabase || !session?.user?.id || !isEmployeeSession || demo) return
+    let active = true
+    let checking = false
+    const checkSession = async () => {
+      if (checking || !active) return
+      checking = true
+      try {
+        const { data, error } = await supabase.rpc('employee_session_is_valid')
+        if (active && !error && data === false) {
+          await supabase.auth.signOut({ scope: 'local' })
+          if (active) showToast('Sesi Anda telah dicabut. Silakan masuk kembali dengan kata sandi terbaru.', 'error')
+        }
+      } catch {
+        // A transient network/RPC error must not sign out a valid employee.
+      } finally {
+        checking = false
+      }
+    }
+    checkSession()
+    const timer = window.setInterval(checkSession, 10000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [session?.access_token, session?.user?.id, session?.user?.user_metadata?.employee_account, demo])
+
   useEffect(() => {
     if (demo) {
       setStores(demoStores)
