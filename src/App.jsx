@@ -275,6 +275,8 @@ function App() {
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('stores')
   const [adminBusyStoreId, setAdminBusyStoreId] = useState('')
+  const [storeCodeDraft, setStoreCodeDraft] = useState('')
+  const [storeCodeBusy, setStoreCodeBusy] = useState(false)
   const toastTimer = useRef(null)
   const storeProvisionPromise = useRef(null)
   const isCashierPage = page === 'cashier'
@@ -406,6 +408,18 @@ function App() {
   }, [profile?.is_super_admin, demo, loadAdminSummary, showToast])
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
+  useEffect(() => { setStoreCodeDraft(currentStore?.store_code || '') }, [currentStore?.id, currentStore?.store_code])
+
+  const saveStoreCode = useCallback(async () => {
+    if (!supabase || !currentStore?.id || !isStoreOwner || demo) return
+    setStoreCodeBusy(true)
+    const { data, error } = await supabase.rpc('owner_update_store_code', { p_store_id: currentStore.id, p_store_code: storeCodeDraft })
+    setStoreCodeBusy(false)
+    if (error) { showToast(`ID toko gagal disimpan: ${error.message}`, 'error'); return }
+    setStores(rows => rows.map(row => row.id === data.id ? { ...row, store_code: data.store_code } : row))
+    setStoreCodeDraft(data.store_code)
+    showToast('ID toko berhasil diperbarui. UUID internal dan data transaksi tetap aman.')
+  }, [currentStore?.id, isStoreOwner, demo, storeCodeDraft, showToast])
   const currentRole = currentStore?.role || (demo ? 'owner' : 'viewer')
   const currentRoles = currentStore?.roles || [currentRole]
   const isStoreOwner = Boolean(demo || (currentStore?.role === 'owner' && currentStore?.owner_id === session?.user?.id) || (currentStore?.role === 'owner' && !session?.user?.user_metadata?.employee_account))
@@ -1079,7 +1093,7 @@ function App() {
 
   const renderSettings = () => <>
     <PageTitle eyebrow="KONFIGURASI" title="Pengaturan toko" description="Kelola informasi toko, perangkat, dan integrasi yang digunakan." />
-    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><div className="settings-form-grid"><label>Nama toko<input value={currentStore?.name || ''} readOnly /></label><label>Kota / lokasi<input value={currentStore?.city || ''} readOnly placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label></div><div className="settings-note"><LockKeyhole size={15} /> Untuk mengubah informasi toko, gunakan konfigurasi akun yang memiliki akses pemilik.</div><label className="qris-field">Kode toko untuk login karyawan<input value={currentStore?.id || ''} readOnly onFocus={e => e.target.select()} /><small>Bagikan ID ini kepada karyawan agar mereka bisa masuk dengan username masing-masing.</small></label>{isStoreOwner && <button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</section>
+    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><div className="settings-form-grid"><label>Nama toko<input value={currentStore?.name || ''} readOnly /></label><label>Kota / lokasi<input value={currentStore?.city || ''} readOnly placeholder="Belum diatur" /></label><label>ID internal<input value={currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label></div><div className="settings-note"><LockKeyhole size={15} /> Untuk mengubah informasi toko, gunakan konfigurasi akun yang memiliki akses pemilik.</div><label className="qris-field">ID toko untuk login karyawan<input value={storeCodeDraft} onChange={e => setStoreCodeDraft(e.target.value.toUpperCase().replace(/\\s+/g, '-'))} readOnly={!isStoreOwner || demo} maxLength={20} placeholder="Contoh: KEDAI-01" /><small>3–20 karakter: huruf, angka, dan tanda hubung. Harus unik di seluruh platform.</small></label>{isStoreOwner && !demo && <button className="button button-primary" onClick={saveStoreCode} disabled={storeCodeBusy || !storeCodeDraft.trim() || storeCodeDraft === (currentStore?.store_code || '')}>{storeCodeBusy ? <span className="spinner" /> : <Check size={16} />} Simpan ID toko</button>}{isStoreOwner && <button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak browser.</p></section>
       <section className="panel settings-section qris-settings-panel"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Atur metode pembayaran khusus toko aktif</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (qrisSavedSettings ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : qrisSavedSettings ? 'Terkonfigurasi' : 'Belum diatur'}</span></div>
         {demo ? <div className="settings-note"><KeyRound size={15} /> Mode demo tidak menyimpan kredensial merchant atau menerima pembayaran nyata. Keluar dari demo dan hubungkan Supabase untuk mengatur QRIS.</div> : <>
