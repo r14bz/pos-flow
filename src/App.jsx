@@ -1077,27 +1077,50 @@ function App() {
 
   const renderCashier = () => {
     if (!canUseCashier) return <EmptyState icon={LockKeyhole} title="Akses kasir dibatasi" text="Akun Anda tidak memiliki peran Kasir. Hubungi pemilik toko jika akses transaksi memang diperlukan." action={<button className="button button-secondary" onClick={() => navigate('dashboard')}>Kembali ke ringkasan</button>} />
+    const cashierMatches = cartSearch.trim().length >= 1
+      ? products.filter(p => {
+          const query = cartSearch.trim().toLowerCase()
+          return [p.name, p.sku, p.barcode].some(value => String(value || '').toLowerCase().includes(query))
+        }).slice(0, 6)
+      : []
+    const addCashierProduct = (product) => {
+      if (Number(product.stock || 0) <= 0) return showToast(`${product.name} sedang kehabisan stok.`, 'error')
+      addToCart(product)
+      setCartSearch('')
+      showToast(`${product.name} ditambahkan ke keranjang.`)
+    }
     const submitBarcode = (e) => {
       e.preventDefault()
       const code = cartSearch.trim()
       if (!code) return
-      const product = products.find(p => String(p.barcode || '') === code || String(p.sku || '').toLowerCase() === code.toLowerCase())
-      if (!product) return showToast(`Barcode/SKU ${code} belum terdaftar.`, 'error')
-      if (Number(product.stock || 0) <= 0) return showToast(`${product.name} sedang kehabisan stok.`, 'error')
-      addToCart(product); setCartSearch(''); showToast(`${product.name} ditambahkan ke keranjang.`)
+      const product = products.find(p =>
+        String(p.barcode || '') === code ||
+        String(p.sku || '').toLowerCase() === code.toLowerCase() ||
+        String(p.name || '').toLowerCase() === code.toLowerCase()
+      )
+      if (!product) return showToast(`Barcode, nomor produk, atau nama "${code}" belum terdaftar.`, 'error')
+      addCashierProduct(product)
     }
     return <div className="cashier-layout cashier-scan-layout">
       <section className="cashier-scan-panel">
-        <div className="cashier-header"><div><div className="eyebrow">MODE KASIR</div><h1>Transaksi baru</h1><p>Scan barcode produk untuk menambahkannya ke transaksi.</p></div><div className="cashier-status"><span className="live-dot" /> Kasir aktif</div></div>
+        <div className="cashier-header"><div><div className="eyebrow">MODE KASIR</div><h1>Transaksi baru</h1><p>Scan barcode, ketik nomor/SKU, atau cari nama produk.</p></div><div className="cashier-status"><span className="live-dot" /> Kasir aktif</div></div>
         <div className="cashier-scan-box">
           <div className="cashier-scan-icon"><ScanLine size={38} /></div>
-          <h2>Scan barcode produk</h2>
-          <p>Gunakan scanner barcode atau ketik barcode/SKU lalu tekan Enter.</p>
+          <h2>Tambah produk</h2>
+          <p>Scan barcode dengan scanner, atau ketik nomor/SKU/nama produk untuk mencari.</p>
           <form className="cashier-barcode-form" onSubmit={submitBarcode}>
-            <div className="search-input cashier-search cashier-barcode-input"><Barcode size={19} /><input autoFocus inputMode="numeric" value={cartSearch} onChange={e => setCartSearch(e.target.value)} placeholder="Scan atau ketik barcode…" aria-label="Barcode produk" /><button type="submit" className="button button-primary">Tambah</button></div>
+            <div className="search-input cashier-search cashier-barcode-input"><Search size={19} /><input autoFocus value={cartSearch} onChange={e => setCartSearch(e.target.value)} placeholder="Scan barcode / cari nomor atau nama…" aria-label="Cari produk dengan barcode, nomor, SKU, atau nama" /><button type="submit" className="button button-primary">Tambah</button></div>
+            {cashierMatches.length > 0 && <div className="cashier-product-suggestions" role="listbox" aria-label="Hasil pencarian produk">
+              {cashierMatches.map(product => <button type="button" className="cashier-product-suggestion" key={product.id} onClick={() => addCashierProduct(product)}>
+                <ProductVisual product={product} />
+                <span className="cashier-product-suggestion-main"><strong>{product.name}</strong><small>{product.sku ? `No. produk: ${product.sku}` : 'No. produk belum diatur'}{product.barcode ? ` · Barcode: ${product.barcode}` : ''}</small></span>
+                <span className="cashier-product-suggestion-stock"><strong>{idr(product.price)}</strong><small>{Number(product.stock || 0) > 0 ? `Stok ${product.stock}` : 'Stok habis'}</small></span>
+                <ChevronRight size={16} />
+              </button>)}
+            </div>}
           </form>
           <button className="button button-secondary cashier-camera-button" type="button" onClick={() => showScanner('cashier')}><Camera size={18} /> Buka kamera scanner</button>
-          <div className="cashier-scan-note"><Barcode size={15} /><span>Daftar produk tidak ditampilkan di halaman kasir agar tetap ringkas meskipun produk toko sangat banyak.</span></div>
+          <div className="cashier-scan-note"><Search size={15} /><span>Daftar produk tetap disembunyikan. Hasil hanya muncul sesuai kata yang sedang dicari.</span></div>
         </div>
       </section>
       <aside className="cart-panel"><div className="cart-heading"><div><h2><ShoppingCart size={19} /> Keranjang</h2><p>{cart.reduce((a, i) => a + i.qty, 0)} item dipilih</p></div><button className="text-action" disabled={!cart.length} onClick={() => { setCart([]); setCartDiscount('0'); setCashReceived('') }}>Kosongkan</button></div>
