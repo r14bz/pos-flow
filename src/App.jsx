@@ -533,10 +533,13 @@ function App() {
           setAuthError('Pendaftaran berhasil. Periksa email Anda untuk konfirmasi, lalu masuk kembali.')
         }
       } else if (mode === 'employee') {
-        const cleanStoreId = String(storeCode || '').trim()
+        const submittedStoreCode = String(storeCode || '').trim().toUpperCase()
         const cleanUsername = String(username || '').trim().toLowerCase()
-        if (!/^[0-9a-f-]{36}$/i.test(cleanStoreId)) throw new Error('Kode toko tidak valid. Minta ID toko yang benar kepada pemilik.')
+        if (!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(submittedStoreCode)) throw new Error('Kode toko tidak valid. Minta kode toko yang benar kepada pemilik.')
         if (!/^[a-z0-9._-]{3,32}$/.test(cleanUsername)) throw new Error('Username harus 3–32 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.')
+        const { data: resolvedStoreId, error: resolveError } = await supabase.rpc('resolve_store_code', { p_store_code: submittedStoreCode })
+        if (resolveError || !resolvedStoreId) throw new Error('Kode toko tidak ditemukan. Periksa kembali kode dari pemilik toko.')
+        const cleanStoreId = String(resolvedStoreId)
         const employeeEmail = `emp-${cleanUsername}@${cleanStoreId}.employee.invalid`
         const { data, error } = await supabase.auth.signInWithPassword({ email: employeeEmail, password })
         if (error) throw new Error('Login gagal. Periksa kode toko, username, dan kata sandi.')
