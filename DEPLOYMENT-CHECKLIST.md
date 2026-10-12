@@ -1,4 +1,4 @@
-# TokoFlow POS — checklist sebelum go-live
+# SEMAR — checklist sebelum go-live
 
 ## 1. GitHub dan Vercel
 

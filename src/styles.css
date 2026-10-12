@@ -1061,9 +1061,13 @@ input, select, textarea { color: var(--ink); }
 :root[data-theme='dark'] .password-reveal { background: var(--surface-3); border-color: var(--line-strong); }
 :root[data-theme='dark'] .admin-search input::placeholder { color: var(--muted-2); }
 
-/* Brand logo (EMAR) */
-.brand-lockup .brand-logo { display: block; width: auto; height: 46px; max-width: 100%; object-fit: contain; padding: 3px 6px; border-radius: 12px; background: #fff; }
-.brand-small .brand-logo { height: 40px; }
-.brand-light .brand-logo { filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .18)); }
-.auth-mobile-logo .brand-logo, .loading-brand .brand-logo { height: 56px; }
-.onboarding-card .brand-logo { height: 60px; }
+/* Brand logo (SEMAR) */
+.brand-lockup .brand-logo { display: block; width: auto; height: 68px; max-width: 100%; object-fit: contain; padding: 4px 8px; border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(16, 40, 31, .12); }
+.brand-small .brand-logo { height: 52px; }
+.brand-light .brand-logo { height: 96px; padding: 6px 12px; border-radius: 18px; box-shadow: 0 6px 22px rgba(0, 0, 0, .22); }
+.sidebar-brand-row { margin-bottom: 22px; }
+.sidebar-brand-row .brand-lockup { flex: 1 1 auto; justify-content: flex-start; }
+.auth-mobile-logo .brand-logo { height: 80px; }
+.loading-brand .brand-logo { height: 96px; }
+.onboarding-card .brand-logo { height: 84px; }
+@media (max-width: 720px) { .brand-light .brand-logo { height: 80px; } .sidebar-brand-row .brand-logo { height: 64px; } }

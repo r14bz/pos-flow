@@ -1,4 +1,4 @@
-# TokoFlow POS — Multi-toko, mobile-first
+# SEMAR — Sistem Manajemen Retail
 
 Starter aplikasi POS berbahasa Indonesia untuk bisnis multi-toko. Frontend memakai React + Vite, database/auth memakai Supabase, dan deployment statis memakai Vercel.
 
@@ -66,7 +66,7 @@ Contoh perintah Git:
 ```bash
 git init
 git add .
-git commit -m "Build TokoFlow POS starter"
+git commit -m "Build SEMAR starter"
 git branch -M main
 git remote add origin https://github.com/USERNAME/REPO.git
 git push -u origin main
@@ -74,7 +74,7 @@ git push -u origin main
 
 ## QRIS statis + dinamis per toko
 
-TokoFlow menyimpan konfigurasi QRIS berdasarkan `store_id`. Setiap pemilik mengatur QRIS toko aktif di **Pengaturan Toko → Pembayaran QRIS**. Tidak ada satu Server Key global yang dipakai bersama semua toko.
+SEMAR menyimpan konfigurasi QRIS berdasarkan `store_id`. Setiap pemilik mengatur QRIS toko aktif di **Pengaturan Toko → Pembayaran QRIS**. Tidak ada satu Server Key global yang dipakai bersama semua toko.
 
 - **QRIS statis:** unggah gambar QRIS resmi milik toko. File disimpan pada bucket privat `store-qris` dengan kebijakan Storage per toko. Kasir memasukkan total di POS, pelanggan memindai QR, lalu kasir wajib memeriksa pembayaran pada aplikasi/portal merchant sebelum menekan konfirmasi manual. Pembayaran statis tidak dapat diverifikasi otomatis hanya dari gambar atau tangkapan layar.
 - **QRIS dinamis:** pemilik memasukkan ID merchant dan Server Key dari akun merchant miliknya. Kunci dienkripsi dengan AES-GCM di Edge Function dan disimpan dalam tabel `store_qris_credentials` yang tidak dapat dibaca oleh `anon`/`authenticated`. QR dibuat per transaksi. Webhook memetakan `provider_order_id` unik ke toko yang benar, mendekripsi kunci toko itu di server, memvalidasi signature, dan baru mengonfirmasi pembayaran.
@@ -110,7 +110,7 @@ TokoFlow menyimpan konfigurasi QRIS berdasarkan `store_id`. Setiap pemilik menga
    npx supabase functions deploy midtrans-webhook
    ```
 
-4. Pada setiap akun merchant Midtrans, aktifkan QRIS/API dan masukkan **Server Key milik toko tersebut** melalui halaman pengaturan TokoFlow. Jangan menyimpan Server Key pada Vercel `VITE_*`.
+4. Pada setiap akun merchant Midtrans, aktifkan QRIS/API dan masukkan **Server Key milik toko tersebut** melalui halaman pengaturan SEMAR. Jangan menyimpan Server Key pada Vercel `VITE_*`.
 5. Atur URL notifikasi Midtrans ke `https://PROJECT_REF.supabase.co/functions/v1/midtrans-webhook` untuk setiap merchant yang mendukung URL webhook tersebut. Uji di Sandbox terlebih dahulu dan pastikan webhook terverifikasi sebelum produksi.
 6. Jadwalkan `POST https://PROJECT_REF.supabase.co/functions/v1/expire-static-qris-sales` setiap 5 menit dengan header `x-cron-secret: <CRON_SECRET>`. Fungsi ini membatalkan QRIS statis yang kedaluwarsa dan melepas stok reservasi. Set `CRON_SECRET` sebagai Supabase Edge Function Secret.
 7. QRIS statis harus diambil dari kanal resmi merchant. Untuk pengujian, gunakan instrumen Sandbox yang disediakan penyedia jika tersedia; jangan melakukan pembayaran percobaan ke QRIS produksi tanpa sengaja.

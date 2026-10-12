@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "TokoFlow POS",
-  "short_name": "TokoFlow",
-  "description": "Kasir dan inventaris multi-toko",
+  "name": "SEMAR — Sistem Manajemen Retail",
+  "short_name": "SEMAR",
+  "description": "Sistem manajemen retail: kasir dan inventaris multi-toko",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
