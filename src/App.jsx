@@ -403,7 +403,7 @@ function App() {
     }
     showToast(nextStatus === 'suspended' ? 'Toko berhasil ditangguhkan.' : 'Toko berhasil diaktifkan kembali.')
     await loadAdminSummary()
-  }, [isSuperAdmin, loadAdminSummary, showToast])
+  }, [profile?.is_super_admin, demo, loadAdminSummary, showToast])
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
   const currentRole = currentStore?.role || (demo ? 'owner' : 'viewer')
