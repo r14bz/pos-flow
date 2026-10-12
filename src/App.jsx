@@ -271,6 +271,8 @@ function App() {
   const [receiptToShow, setReceiptToShow] = useState(null)
   const [adminStores, setAdminStores] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
+  const [adminMemberships, setAdminMemberships] = useState([])
+  const [adminEmployees, setAdminEmployees] = useState([])
   const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('stores')
@@ -338,7 +340,7 @@ function App() {
       setLoadingData(true)
       const [profileRes, memberRes, extraRolesRes] = await Promise.all([
         supabase.from('profiles').select('full_name,is_super_admin').eq('id', session.user.id).maybeSingle(),
-        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at,owner_id)').eq('user_id', session.user.id),
+        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,store_code,created_at,owner_id)').eq('user_id', session.user.id),
         supabase.from('store_membership_roles').select('store_id,role').eq('user_id', session.user.id),
       ])
       if (!alive) return
@@ -377,10 +379,12 @@ function App() {
 
   const loadAdminSummary = useCallback(async () => {
     if (!supabase) return
-    const [{ data: allStores, error: storesError }, { data: allProfiles, error: profilesError }, { data: auditRows, error: auditError }] = await Promise.all([
+    const [{ data: allStores, error: storesError }, { data: allProfiles, error: profilesError }, { data: auditRows, error: auditError }, { data: memberships }, { data: employeeRows }] = await Promise.all([
       supabase.from('stores').select('id,name,city,status,store_code,owner_id,created_at').order('created_at', { ascending: false }).limit(200),
       supabase.from('profiles').select('id,full_name,created_at,is_super_admin').order('created_at', { ascending: false }).limit(200),
       supabase.from('admin_audit_logs').select('id,actor_id,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(100),
+      supabase.from('store_memberships').select('store_id,user_id,role').limit(1000),
+      supabase.from('employees').select('id,store_id,name,username,role').limit(1000),
     ])
     if (storesError) showToast(`Gagal memuat daftar toko: ${storesError.message}`, 'error')
     if (profilesError) showToast(`Gagal memuat daftar akun: ${profilesError.message}`, 'error')
@@ -388,6 +392,8 @@ function App() {
     setAdminStores(allStores || [])
     setAdminUsers(allProfiles || [])
     setAdminAuditLogs(auditRows || [])
+    setAdminMemberships(memberships || [])
+    setAdminEmployees(employeeRows || [])
   }, [showToast])
 
   const setAdminStoreStatus = useCallback(async (store) => {
