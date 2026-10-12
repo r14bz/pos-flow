@@ -272,6 +272,8 @@ function App() {
   const [adminStores, setAdminStores] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
   const [adminMemberships, setAdminMemberships] = useState([])
+  const [storeCodeDraft, setStoreCodeDraft] = useState('')
+  const [storeCodeBusy, setStoreCodeBusy] = useState(false)
   const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('stores')
