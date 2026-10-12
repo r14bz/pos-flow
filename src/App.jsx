@@ -339,7 +339,7 @@ function App() {
       setLoadingData(true)
       const [profileRes, memberRes, extraRolesRes] = await Promise.all([
         supabase.from('profiles').select('full_name,is_super_admin').eq('id', session.user.id).maybeSingle(),
-        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,created_at,owner_id)').eq('user_id', session.user.id),
+        supabase.from('store_memberships').select('store_id,role,stores(id,name,city,store_code,created_at,owner_id)').eq('user_id', session.user.id),
         supabase.from('store_membership_roles').select('store_id,role').eq('user_id', session.user.id),
       ])
       if (!alive) return
