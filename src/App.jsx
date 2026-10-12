@@ -71,7 +71,7 @@ function IconButton({ icon: Icon, label, onClick, className = '', badge = false,
 
 function Logo({ small = false, light = false }) {
   return <div className={`brand-lockup ${small ? 'brand-small' : ''} ${light ? 'brand-light' : ''}`}>
-    <img className="brand-logo" src="/brand/emar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="900" height="388" decoding="async" />
+    <img className="brand-logo" src="/brand/semar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="519" decoding="async" />
   </div>
 }
 
@@ -88,7 +88,6 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
   return <div className="auth-screen">
     <section className="auth-story">
       <div className="auth-story-inner">
-        <Logo light />
         <div className="auth-story-copy">
           <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
           <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
@@ -104,10 +103,9 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
       <div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" />
     </section>
     <section className="auth-form-side">
-      <div className="auth-mobile-logo"><Logo /></div>
+      <div className="auth-form-logo"><Logo /></div>
       <div className="auth-form-card">
         <div className="auth-form-heading">
-          <span className="auth-greeting-icon"><Store size={21} /></span>
           <div className="eyebrow">RUANG KERJA ANDA</div>
           <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
           <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
