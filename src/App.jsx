@@ -177,7 +177,7 @@ function ProductVisual({ product, large = false }) {
 }
 
 function StatusPill({ status }) {
-  const conf = status === 'paid' || status === 'active' ? ['status-green', status === 'active' ? 'Aktif' : 'Berhasil'] : status === 'pending' ? ['status-yellow', 'Menunggu'] : status === 'cancelled' ? ['status-red', 'Dibatalkan'] : ['status-gray', status || '—']
+  const conf = status === 'paid' || status === 'active' ? ['status-green', status === 'active' ? 'Aktif' : 'Berhasil'] : status === 'suspended' ? ['status-red', 'Ditangguhkan'] : status === 'pending' ? ['status-yellow', 'Menunggu'] : status === 'cancelled' ? ['status-red', 'Dibatalkan'] : ['status-gray', status || '—']
   return <span className={`status-pill ${conf[0]}`}><i />{conf[1]}</span>
 }
 
@@ -271,8 +271,10 @@ function App() {
   const [receiptToShow, setReceiptToShow] = useState(null)
   const [adminStores, setAdminStores] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
+  const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('stores')
+  const [adminBusyStoreId, setAdminBusyStoreId] = useState('')
   const toastTimer = useRef(null)
   const storeProvisionPromise = useRef(null)
   const isCashierPage = page === 'cashier'
@@ -373,13 +375,35 @@ function App() {
 
   const loadAdminSummary = useCallback(async () => {
     if (!supabase) return
-    const [{ data: allStores }, { data: allProfiles }] = await Promise.all([
-      supabase.from('stores').select('id,name,city,created_at').order('created_at', { ascending: false }).limit(200),
+    const [{ data: allStores, error: storesError }, { data: allProfiles, error: profilesError }, { data: auditRows, error: auditError }] = await Promise.all([
+      supabase.from('stores').select('id,name,city,status,created_at').order('created_at', { ascending: false }).limit(200),
       supabase.from('profiles').select('id,full_name,created_at,is_super_admin').order('created_at', { ascending: false }).limit(200),
+      supabase.from('admin_audit_logs').select('id,actor_id,action,target_type,target_id,details,created_at').order('created_at', { ascending: false }).limit(100),
     ])
+    if (storesError) showToast(`Gagal memuat daftar toko: ${storesError.message}`, 'error')
+    if (profilesError) showToast(`Gagal memuat daftar akun: ${profilesError.message}`, 'error')
+    if (auditError) showToast(`Riwayat audit belum tersedia. Pastikan migrasi database sudah diterapkan. (${auditError.message})`, 'error')
     setAdminStores(allStores || [])
     setAdminUsers(allProfiles || [])
-  }, [])
+    setAdminAuditLogs(auditRows || [])
+  }, [showToast])
+
+  const setAdminStoreStatus = useCallback(async (store) => {
+    if (!supabase || !store?.id || !isSuperAdmin) return
+    const nextStatus = store.status === 'suspended' ? 'active' : 'suspended'
+    const actionLabel = nextStatus === 'suspended' ? 'menangguhkan' : 'mengaktifkan kembali'
+    const confirmed = window.confirm(`Yakin ingin ${actionLabel} toko "${store.name}"? ${nextStatus === 'suspended' ? 'Anggota toko tidak dapat mengakses data selama status ditangguhkan.' : 'Akses anggota toko akan dipulihkan.'}`)
+    if (!confirmed) return
+    setAdminBusyStoreId(store.id)
+    const { error } = await supabase.rpc('admin_set_store_status', { p_store_id: store.id, p_status: nextStatus })
+    setAdminBusyStoreId('')
+    if (error) {
+      showToast(`Status toko gagal diubah: ${error.message}`, 'error')
+      return
+    }
+    showToast(nextStatus === 'suspended' ? 'Toko berhasil ditangguhkan.' : 'Toko berhasil diaktifkan kembali.')
+    await loadAdminSummary()
+  }, [isSuperAdmin, loadAdminSummary, showToast])
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
   const currentRole = currentStore?.role || (demo ? 'owner' : 'viewer')
@@ -1065,19 +1089,37 @@ function App() {
 
   const renderAdmin = () => {
     const term = adminSearch.trim().toLocaleLowerCase('id-ID')
-    const filteredAdminStores = (demo ? demoStores : adminStores).filter(store =>
+    const filteredAdminStores = (demo ? demoStores.map(s => ({ ...s, status: 'active' })) : adminStores).filter(store =>
       [store.name, store.city, store.id].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
     )
     const filteredAdminUsers = (demo ? [{ id: 'demo-user', full_name: 'Ria Aditya', is_super_admin: true }, ...Array.from({ length: 5 }, (_, i) => ({ id: `demo-u-${i}`, full_name: ['Dian Lestari', 'Budi Santoso', 'Intan Prameswari', 'Agus Setiawan', 'Maya Putri'][i], is_super_admin: false }))] : adminUsers).filter(user =>
       [user.full_name, user.id, user.is_super_admin ? 'administrator' : 'pengguna'].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
     )
+    const filteredAuditLogs = adminAuditLogs.filter(log =>
+      [log.action, log.target_type, log.target_id, log.actor_id, JSON.stringify(log.details || {})].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
+    )
+    const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko' }[action] || action || 'Aktivitas admin')
     return <>
-    <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Ringkasan semua toko dan akun yang terdaftar di platform." actions={<button className="button button-secondary" onClick={loadAdminSummary}><RefreshCcw size={16} /> Muat ulang</button>} />
-    <div className="admin-toolbar panel"><div className="admin-search"><Search size={17} /><input value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Cari nama toko, lokasi, ID, atau akun…" aria-label="Cari akun dan toko" /><button className="button button-secondary button-sm" onClick={() => setAdminSearch('')} disabled={!adminSearch}>Reset</button></div><div className="admin-tabs" role="tablist" aria-label="Jenis data administrator"><button role="tab" aria-selected={adminTab === 'stores'} className={adminTab === 'stores' ? 'active' : ''} onClick={() => setAdminTab('stores')}>Toko ({filteredAdminStores.length})</button><button role="tab" aria-selected={adminTab === 'users'} className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>Akun ({filteredAdminUsers.length})</button></div></div><div className="kpi-grid"><KPI icon={Building2} label="Total toko" value={(demo ? demoStores.length : adminStores.length).toLocaleString('id-ID')} trendLabel="Terdaftar di platform" tone="green" /><KPI icon={Users} label="Total akun" value={(demo ? 18 : adminUsers.length).toLocaleString('id-ID')} trendLabel="Akun yang terdaftar" tone="blue" /><KPI icon={Activity} label="Status sistem" value="Aktif" trendLabel="Supabase / Realtime" tone="purple" /><KPI icon={ShieldCheck} label="Isolasi data" value="RLS" trendLabel="Kebijakan per toko" tone="amber" /></div>
-    {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Data lintas toko hanya tersedia untuk administrator platform.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Lokasi</th><th>ID toko</th><th>Dibuat</th><th>Status</th></tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.id}</span></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status="active" /></td></tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
-    {adminTab === 'users' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Akun pengguna</h3><p>Akun yang terlihat dari database otorisasi.</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama pengguna</th><th>ID akun</th><th>Peran platform</th><th>Dibuat</th></tr></thead><tbody>{filteredAdminUsers.map(u => <tr key={u.id}><td><div className="employee-name-cell"><span className="avatar avatar-owner">{initials(u.full_name)}</span><strong>{u.full_name || 'Pengguna'}</strong></div></td><td><span className="mono-text">{u.id}</span></td><td>{u.is_super_admin ? <span className="role-pill owner">Administrator</span> : <span className="role-pill viewer">Pengguna</span>}</td><td>{u.created_at ? formatDate(u.created_at, { year: 'numeric' }) : 'Data demo'}</td></tr>)}</tbody></table>{filteredAdminUsers.length === 0 && <div className="admin-empty-results">Tidak ada akun yang cocok dengan pencarian.</div>}</div></section>}
-    <div className="admin-warning"><ShieldCheck size={18} /><p><strong>Admin bukan peran toko biasa.</strong> Aktifkan hak administrator hanya melalui proses backend tepercaya di Supabase. Jangan menerima flag admin dari metadata yang dapat diubah user.</p></div>
-  </>
+      <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola toko dan akun yang terdaftar di platform." actions={<button className="button button-secondary" onClick={loadAdminSummary}><RefreshCcw size={16} /> Muat ulang</button>} />
+      <div className="admin-toolbar panel">
+        <div className="admin-search"><Search size={17} /><input value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Cari nama toko, lokasi, ID, atau aktivitas…" aria-label="Cari data administrator" /><button className="button button-secondary button-sm" onClick={() => setAdminSearch('')} disabled={!adminSearch}>Reset</button></div>
+        <div className="admin-tabs" role="tablist" aria-label="Jenis data administrator">
+          <button role="tab" aria-selected={adminTab === 'stores'} className={adminTab === 'stores' ? 'active' : ''} onClick={() => setAdminTab('stores')}>Toko ({filteredAdminStores.length})</button>
+          <button role="tab" aria-selected={adminTab === 'users'} className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>Akun ({filteredAdminUsers.length})</button>
+          <button role="tab" aria-selected={adminTab === 'audit'} className={adminTab === 'audit' ? 'active' : ''} onClick={() => setAdminTab('audit')}>Audit ({filteredAuditLogs.length})</button>
+        </div>
+      </div>
+      <div className="kpi-grid">
+        <KPI icon={Building2} label="Total toko" value={(demo ? demoStores.length : adminStores.length).toLocaleString('id-ID')} trendLabel="Terdaftar di platform" tone="green" />
+        <KPI icon={Users} label="Total akun" value={(demo ? 18 : adminUsers.length).toLocaleString('id-ID')} trendLabel="Akun yang terdaftar" tone="blue" />
+        <KPI icon={ShieldCheck} label="Toko aktif" value={(demo ? demoStores.length : adminStores.filter(s => s.status !== 'suspended').length).toLocaleString('id-ID')} trendLabel="Dapat diakses anggota" tone="purple" />
+        <KPI icon={Activity} label="Audit terbaru" value={adminAuditLogs.length.toLocaleString('id-ID')} trendLabel="Catatan yang tersedia" tone="amber" />
+      </div>
+      {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Penangguhan toko memblokir akses anggota melalui kebijakan database.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Lokasi</th><th>ID toko</th><th>Dibuat</th><th>Status</th>{!demo && <th>Tindakan</th>}</tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.id}</span></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status={s.status === 'suspended' ? 'suspended' : 'active'} /></td>{!demo && <td><button className={`button button-sm ${s.status === 'suspended' ? 'button-primary' : 'button-secondary'}`} disabled={adminBusyStoreId === s.id} onClick={() => setAdminStoreStatus(s)}>{adminBusyStoreId === s.id ? <span className="spinner" /> : s.status === 'suspended' ? 'Aktifkan' : 'Tangguhkan'}</button></td>}</tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
+      {adminTab === 'users' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Akun pengguna</h3><p>Akun yang terlihat dari database otorisasi.</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama pengguna</th><th>ID akun</th><th>Peran platform</th><th>Dibuat</th></tr></thead><tbody>{filteredAdminUsers.map(u => <tr key={u.id}><td><div className="employee-name-cell"><span className="avatar avatar-owner">{initials(u.full_name)}</span><strong>{u.full_name || 'Pengguna'}</strong></div></td><td><span className="mono-text">{u.id}</span></td><td>{u.is_super_admin ? <span className="role-pill owner">Administrator</span> : <span className="role-pill viewer">Pengguna</span>}</td><td>{u.created_at ? formatDate(u.created_at, { year: 'numeric' }) : 'Data demo'}</td></tr>)}</tbody></table>{filteredAdminUsers.length === 0 && <div className="admin-empty-results">Tidak ada akun yang cocok dengan pencarian.</div>}</div></section>}
+      {adminTab === 'audit' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Riwayat audit administrator</h3><p>Catatan perubahan administratif terbaru yang tersimpan di database.</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Aktivitas</th><th>Target</th><th>ID target</th><th>Detail</th><th>Waktu</th></tr></thead><tbody>{filteredAuditLogs.map(log => <tr key={log.id}><td>{auditActionLabel(log.action)}</td><td>{log.target_type === 'store' ? 'Toko' : 'Akun'}</td><td><span className="mono-text">{log.target_id}</span></td><td><span className="audit-details">{JSON.stringify(log.details || {})}</span></td><td>{log.created_at ? formatDate(log.created_at, { year: 'numeric', month: 'short', day: '2-digit' }) : '—'}</td></tr>)}</tbody></table>{filteredAuditLogs.length === 0 && <div className="admin-empty-results">{demo ? 'Riwayat audit hanya tersedia pada mode database.' : 'Belum ada aktivitas audit atau migrasi database belum diterapkan.'}</div>}</div></section>}
+      <div className="admin-warning"><ShieldCheck size={18} /><p><strong>Keamanan administrator.</strong> Perubahan status toko dilakukan melalui RPC yang memverifikasi superadmin dan mencatat audit dalam transaksi yang sama. Akses admin hanya boleh diberikan melalui backend tepercaya.</p></div>
+    </>
   }
 
   if (authLoading) return <div className="loading-screen"><div className="loading-brand"><Logo /></div><span className="spinner spinner-large" /><p>Menyiapkan ruang kerja…</p></div>
