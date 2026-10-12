@@ -92,3 +92,22 @@ revoke all on function public.owner_update_store_code(uuid, text) from public, a
 grant execute on function public.owner_update_store_code(uuid, text) to authenticated;
 
 comment on column public.stores.store_code is 'Human-friendly globally unique store code; stores.id remains the immutable internal UUID.';
+
+
+-- Resolve a public-facing code to the immutable UUID used by employee auth metadata.
+-- Return only the UUID; do not expose store names or other store information before login.
+create or replace function public.resolve_store_code(p_store_code text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.id
+  from public.stores s
+  where upper(s.store_code) = upper(btrim(coalesce(p_store_code, '')))
+    and s.status = 'active'
+  limit 1;
+$$;
+revoke all on function public.resolve_store_code(text) from public, anon;
+grant execute on function public.resolve_store_code(text) to anon, authenticated;
