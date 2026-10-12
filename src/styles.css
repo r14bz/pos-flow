@@ -1078,3 +1078,18 @@ input, select, textarea { color: var(--ink); }
 :root[data-theme='dark'] .brand-lockup .brand-logo-dark { display: block; background: transparent; border-radius: 0; }
 :root[data-theme='dark'] .auth-form-logo .brand-logo-dark { width: 100%; height: auto; }
 :root[data-theme='dark'] .onboarding-card .brand-logo-dark { width: 100%; height: auto; }
+
+
+/* Cashier scan-first workflow */
+.cashier-scan-layout { grid-template-columns: minmax(0, 1fr) minmax(330px, 380px); }
+.cashier-scan-panel { min-width: 0; }
+.cashier-scan-box { min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 42px 32px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: center; }
+.cashier-scan-icon { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 20px; color: var(--accent); background: var(--accent-pale); margin-bottom: 18px; }
+.cashier-scan-box h2 { margin: 0 0 8px; }
+.cashier-scan-box > p { max-width: 520px; margin: 0 0 22px; color: var(--muted); }
+.cashier-barcode-form { width: min(620px, 100%); }
+.cashier-barcode-input { min-height: 48px; }
+.cashier-barcode-input input { flex: 1; border: 0; outline: 0; background: transparent; min-width: 0; font: inherit; color: var(--text); }
+.cashier-camera-button { margin-top: 10px; }
+.cashier-scan-note { display: flex; align-items: center; gap: 7px; max-width: 620px; margin-top: 24px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+@media (max-width: 900px) { .cashier-scan-layout { grid-template-columns: 1fr; } .cashier-scan-box { min-height: 300px; padding: 30px 18px; } }
