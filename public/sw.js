@@ -1,5 +1,5 @@
-const CACHE = 'tokoflow-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
+const CACHE = 'tokoflow-shell-v2';
+const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/brand/emar-logo.png'];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))));
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (event) => {
@@ -13,7 +13,7 @@ self.addEventListener('push', (event) => {
   let data = { title: 'TokoFlow', body: 'Ada pembaruan toko Anda.', url: '/' };
   try { data = { ...data, ...(event.data ? event.data.json() : {}) }; } catch {}
   event.waitUntil(self.registration.showNotification(data.title, {
-    body: data.body, icon: '/icon.svg', badge: '/icon.svg', data: { url: data.url || '/' },
+    body: data.body, icon: '/icons/icon-192.png', badge: '/icons/badge-96.png', data: { url: data.url || '/' },
     vibrate: [100, 50, 100], tag: data.tag || 'tokoflow-notice'
   }));
 });

@@ -1060,3 +1060,10 @@ input, select, textarea { color: var(--ink); }
 :root[data-theme='dark'] .owner-card, :root[data-theme='dark'] .owner-store { border-color: var(--line-strong); }
 :root[data-theme='dark'] .password-reveal { background: var(--surface-3); border-color: var(--line-strong); }
 :root[data-theme='dark'] .admin-search input::placeholder { color: var(--muted-2); }
+
+/* Brand logo (EMAR) */
+.brand-lockup .brand-logo { display: block; width: auto; height: 46px; max-width: 100%; object-fit: contain; padding: 3px 6px; border-radius: 12px; background: #fff; }
+.brand-small .brand-logo { height: 40px; }
+.brand-light .brand-logo { filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .18)); }
+.auth-mobile-logo .brand-logo, .loading-brand .brand-logo { height: 56px; }
+.onboarding-card .brand-logo { height: 60px; }

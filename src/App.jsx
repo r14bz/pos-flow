@@ -71,8 +71,7 @@ function IconButton({ icon: Icon, label, onClick, className = '', badge = false,
 
 function Logo({ small = false, light = false }) {
   return <div className={`brand-lockup ${small ? 'brand-small' : ''} ${light ? 'brand-light' : ''}`}>
-    <div className="brand-symbol"><ShoppingBag size={small ? 19 : 22} strokeWidth={2.2} /><span /></div>
-    <div className="brand-wordmark"><strong>TokoFlow</strong><span>POS</span></div>
+    <img className="brand-logo" src="/brand/emar-logo.png" alt="EMAR — Sistem Manajemen Retail" width="900" height="388" decoding="async" />
   </div>
 }
 
