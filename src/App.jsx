@@ -41,7 +41,7 @@ const normaliseProduct = (row) => ({ ...row, min_stock: row.min_stock ?? 5, icon
 const normaliseSale = (row) => ({ ...row, sale_items: row.sale_items || row.items || [], cashier_name: row.cashier_name || row.cashier?.full_name || 'Karyawan', status: row.status || 'paid' })
 function categoryIcon(category) { return ({ Minuman: '☕', Makanan: '🥐', Sembako: '🛒', Aksesoris: '📦' }[category] || '📦') }
 function categoryColor(category) { return ({ Minuman: 'peach', Makanan: 'cream', Sembako: 'mint', Aksesoris: 'lilac' }[category] || 'blue') }
-function initials(name = 'TokoFlow') { return (name || '').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() || '?' }
+function initials(name = 'SEMAR') { return (name || '').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() || '?' }
 async function functionErrorMessage(error, fallback) {
   try { const body = await error?.context?.json?.(); if (body?.error) return body.error } catch { /* body is not JSON */ }
   if (/not found|failed to send|fetch/i.test(error?.message || '')) return 'Edge function admin-accounts belum di-deploy atau tidak dapat dijangkau.'
@@ -71,8 +71,8 @@ function IconButton({ icon: Icon, label, onClick, className = '', badge = false,
 
 function Logo({ small = false, light = false }) {
   return <div className={`brand-lockup ${small ? 'brand-small' : ''} ${light ? 'brand-light' : ''}`}>
-    <div className="brand-symbol"><ShoppingBag size={small ? 19 : 22} strokeWidth={2.2} /><span /></div>
-    <div className="brand-wordmark"><strong>TokoFlow</strong><span>POS</span></div>
+    <img className="brand-logo brand-logo-light" src="/brand/semar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="519" decoding="async" />
+    <img className="brand-logo brand-logo-dark" src="/brand/semar-logo-dark.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="522" decoding="async" loading="lazy" />
   </div>
 }
 
@@ -89,7 +89,6 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
   return <div className="auth-screen">
     <section className="auth-story">
       <div className="auth-story-inner">
-        <Logo light />
         <div className="auth-story-copy">
           <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
           <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
@@ -100,18 +99,17 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
             <div><span><ShieldCheck size={17} /></span><section><strong>Data terpisah dan aman</strong><small>Akses berbasis peran pengguna</small></section></div>
           </div>
         </div>
-        <div className="auth-story-footer"><span>© 2026 TokoFlow POS</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div>
+        <div className="auth-story-footer"><span>© 2026 SEMAR</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div>
       </div>
       <div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" />
     </section>
     <section className="auth-form-side">
-      <div className="auth-mobile-logo"><Logo /></div>
+      <div className="auth-form-logo"><Logo /></div>
       <div className="auth-form-card">
         <div className="auth-form-heading">
-          <span className="auth-greeting-icon"><Store size={21} /></span>
           <div className="eyebrow">RUANG KERJA ANDA</div>
           <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan TokoFlow POS.'}</p>
+          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
         </div>
         <form onSubmit={submit} className="auth-form">
           {mode === 'signup' && <>
@@ -998,8 +996,8 @@ function App() {
     const wb = XLSX.utils.book_new()
     const addSheet = (rows, name, widths) => { const ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = widths.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, name) }
     addSheet(summaryRows, 'Ringkasan', [28, 34]); addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14]); addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18]); addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18])
-    wb.Props = { Title: `Laporan ${currentStore?.name || 'Toko'}`, Subject: 'Laporan POS TokoFlow', Author: 'TokoFlow POS', CreatedDate: new Date() }
-    XLSX.writeFile(wb, `TokoFlow-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${reportDate}.xlsx`)
+    wb.Props = { Title: `Laporan ${currentStore?.name || 'Toko'}`, Subject: 'Laporan POS SEMAR', Author: 'SEMAR', CreatedDate: new Date() }
+    XLSX.writeFile(wb, `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${reportDate}.xlsx`)
     showToast('File Excel berhasil diunduh.')
   }
 
@@ -1008,7 +1006,7 @@ function App() {
     const items = sale.sale_items || []
     const content = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Struk ${sale.receipt_no}</title><style>
       *{box-sizing:border-box}body{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;width:280px;margin:0 auto;padding:12px}h1{font:700 18px Arial;text-align:center;margin:0}p{margin:3px 0;text-align:center}.line{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;gap:10px}.item{margin:8px 0}.item small{display:block;color:#555}.total{font-size:15px;font-weight:bold}.muted{color:#666;font-size:11px}@media print{body{width:auto;padding:0}@page{margin:5mm}}
-      </style></head><body><h1>${escapeHtml(currentStore?.name || 'TokoFlow POS')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by TokoFlow POS</p><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}</script></body></html>`
+      </style></head><body><h1>${escapeHtml(currentStore?.name || 'SEMAR')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by SEMAR</p><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}</script></body></html>`
     const win = window.open('', '_blank', 'width=360,height=720')
     if (!win) { showToast('Izinkan pop-up untuk mencetak struk.', 'error'); return }
     win.document.open(); win.document.write(content); win.document.close()
@@ -1018,7 +1016,7 @@ function App() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi.', 'error')
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return showToast('Izin notifikasi belum diberikan.', 'error')
-    if (demo) { new Notification('TokoFlow POS', { body: 'Notifikasi demo berhasil diaktifkan.' }); showToast('Notifikasi perangkat diaktifkan untuk sesi ini.'); return }
+    if (demo) { new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' }); showToast('Notifikasi perangkat diaktifkan untuk sesi ini.'); return }
     const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY
     if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push di latar belakang.', 'error')
     try {
@@ -1204,7 +1202,7 @@ function App() {
         </>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon amber"><Bell size={19} /></span><div><h3>Notifikasi & laporan</h3><p>Pengingat stok dan ringkasan harian</p></div></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><AlertTriangle size={17} /></span><div><strong>Stok menipis</strong><small>Ingatkan saat jumlah barang mencapai stok minimum.</small></div><button className="button button-secondary button-sm" onClick={enablePush}><Bell size={14} /> Aktifkan push</button></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><FileSpreadsheet size={17} /></span><div><strong>Laporan harian</strong><small>Ringkasan penjualan dapat dijadwalkan dikirim melalui push notification.</small></div><button className="button button-secondary button-sm" onClick={() => { setReportDate(todayISO()); navigate('reports') }}>Lihat laporan</button></div><p className="settings-footnote">Pengiriman push saat aplikasi tertutup membutuhkan konfigurasi VAPID dan fungsi terjadwal di Supabase. Lihat README untuk langkah aktivasi.</p></section>
       <section className="panel settings-section appearance-settings"><div className="settings-section-heading"><span className="settings-icon"><Sun size={19} /></span><div><h3>Tampilan aplikasi</h3><p>Sesuaikan dengan kenyamanan Anda</p></div></div><div className="theme-options"><button className={theme === 'light' ? 'selected' : ''} onClick={() => setTheme('light')}><span className="theme-preview light-preview"><i /><i /><i /></span><strong><Sun size={16} /> Mode terang</strong>{theme === 'light' && <CheckCircle2 size={17} />}</button><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setTheme('dark')}><span className="theme-preview dark-preview"><i /><i /><i /></span><strong><Moon size={16} /> Mode gelap</strong>{theme === 'dark' && <CheckCircle2 size={17} />}</button></div></section>
-      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat (PWA)</h3><p>Pasang TokoFlow di layar utama</p></div></div><p className="settings-long-copy">Akses lebih cepat dari layar utama dan dapat membuka shell aplikasi saat koneksi terbatas. Fitur install sengaja tidak ditampilkan pada halaman kasir agar area transaksi tetap fokus.</p><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install TokoFlow POS</button>{!deferredPrompt && <small className="settings-footnote">Jika tombol install tidak menampilkan prompt, gunakan menu browser “Tambahkan ke layar utama”.</small>}</section></div>
+      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat (PWA)</h3><p>Pasang SEMAR di layar utama</p></div></div><p className="settings-long-copy">Akses lebih cepat dari layar utama dan dapat membuka shell aplikasi saat koneksi terbatas. Fitur install sengaja tidak ditampilkan pada halaman kasir agar area transaksi tetap fokus.</p><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install SEMAR</button>{!deferredPrompt && <small className="settings-footnote">Jika tombol install tidak menampilkan prompt, gunakan menu browser “Tambahkan ke layar utama”.</small>}</section></div>
   </>
 
   const renderAdmin = () => {
@@ -1308,7 +1306,7 @@ function App() {
       <button className="store-switcher" onClick={() => { if (stores.length > 1) setModal({ type: 'stores' }); else if (isStoreOwner) { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) } }}><span className="store-avatar">{initials(currentStore?.name || 'TF')}</span><span className="store-switcher-text"><small>WORKSPACE</small><strong>{currentStore?.name || 'Pilih toko'}</strong><em>{currentStore?.city || 'Lokasi utama'}</em></span><ChevronDown size={16} /></button>
       <div className="nav-section-label">MENU UTAMA</div><nav className="main-nav">{visibleNav.filter(i => i.key !== 'settings' && i.key !== 'admin').map(item => <button key={item.key} className={`nav-item ${page === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><item.icon size={19} strokeWidth={page === item.key ? 2.2 : 1.8} /><span>{item.label}</span>{item.key === 'inventory' && lowStockProducts.length > 0 && <i className="nav-count">{lowStockProducts.length}</i>}{page === item.key && <i className="nav-active-mark" />}</button>)}</nav>
       <div className="nav-section-label nav-section-secondary">PREFERENSI</div><nav className="main-nav">{visibleNav.filter(i => i.key === 'settings' || i.key === 'admin').map(item => <button key={item.key} className={`nav-item ${page === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><item.icon size={19} strokeWidth={page === item.key ? 2.2 : 1.8} /><span>{item.label}</span>{page === item.key && <i className="nav-active-mark" />}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="sync-status"><span className="sync-icon"><Cloud size={17} /></span><span><strong>{demo ? 'Mode demo aktif' : 'Cloud sync aktif'}</strong><small><i /> {demo ? 'Data contoh lokal' : 'Semua data tersinkron'}</small></span></div><button className="sidebar-help" onClick={() => showToast('Bantuan: baca README proyek untuk panduan integrasi dan deployment.', 'info')}><span><CircleHelp size={18} /></span><div><strong>Butuh bantuan?</strong><small>Pusat bantuan TokoFlow</small></div><ExternalLink size={14} /></button><div className="sidebar-user"><span className="user-avatar">{initials(displayName)}</span><div className="sidebar-user-details"><strong>{displayName}</strong><small>{roleLabel(currentRole)}{demo ? ' · Demo' : ''}</small></div><button className="icon-button logout-icon" onClick={signOut} aria-label="Keluar" title="Keluar"><LogOut size={17} /></button></div></div>
+      <div className="sidebar-bottom"><div className="sync-status"><span className="sync-icon"><Cloud size={17} /></span><span><strong>{demo ? 'Mode demo aktif' : 'Cloud sync aktif'}</strong><small><i /> {demo ? 'Data contoh lokal' : 'Semua data tersinkron'}</small></span></div><div className="sidebar-user"><span className="user-avatar">{initials(displayName)}</span><div className="sidebar-user-details"><strong>{displayName}</strong><small>{roleLabel(currentRole)}{demo ? ' · Demo' : ''}</small></div><button className="icon-button logout-icon" onClick={signOut} aria-label="Keluar" title="Keluar"><LogOut size={17} /></button></div></div>
     </aside>
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
@@ -1326,7 +1324,7 @@ function App() {
         {page === 'settings' && renderSettings()}
         {page === 'admin' && (isSuperAdmin ? renderAdmin() : <EmptyState icon={ShieldCheck} title="Akses dibatasi" text="Halaman ini hanya tersedia bagi administrator platform." />)}
       </div>
-      <footer className="app-footer"><span>© 2026 TokoFlow POS <i /> Dibuat untuk bisnis Indonesia</span><span><span className="live-dot" /> {demo ? 'Mode demo' : 'Tersinkron dengan Supabase'}</span></footer>
+      <footer className="app-footer"><span>© 2026 SEMAR <i /> Dibuat untuk bisnis Indonesia</span><span><span className="live-dot" /> {demo ? 'Mode demo' : 'Tersinkron dengan Supabase'}</span></footer>
     </main>
     <nav className="mobile-bottom-nav">{[
       { key: 'dashboard', label: 'Home', icon: Home }, { key: 'inventory', label: 'Stok', icon: Boxes }, { key: 'cashier', label: 'Kasir', icon: ShoppingCart }, { key: 'transactions', label: 'Transaksi', icon: ReceiptText }, { key: 'reports', label: 'Laporan', icon: BarChart3 },

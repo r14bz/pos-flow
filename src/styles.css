@@ -122,7 +122,6 @@ input, select, textarea { color: var(--ink); }
 .auth-separator span { height: 1px; flex: 1; background: var(--line); }
 .auth-separator small { font-size: 9px; letter-spacing: .9px; font-weight: 800; }
 .auth-footnote { text-align: center; font-size: 10px; color: var(--muted-2); line-height: 1.6; margin: 12px 10px 0; }
-.auth-mobile-logo { display: none; }
 .auth-bottom-note { display: inline-flex; gap: 6px; align-items: center; justify-content: center; color: var(--muted-2); font-size: 10px; margin-top: 15px; }
 .auth-bottom-note svg { color: var(--accent); }
 
@@ -713,7 +712,6 @@ input, select, textarea { color: var(--ink); }
   .auth-screen { grid-template-columns: 1fr; }
   .auth-story { display: none; }
   .auth-form-side { padding: 23px 25px 20px; }
-  .auth-mobile-logo { display: block; width: 100%; max-width: 410px; margin-bottom: 28px; }
   .auth-form-card { max-width: 410px; }
   .auth-form-heading h2 { font-size: 24px; }
   :root { --sidebar-width: 0px; }
@@ -758,7 +756,7 @@ input, select, textarea { color: var(--ink); }
 @media (max-width: 640px) {
   body { font-size: 12px; }
   .auth-form-side { min-height: 100svh; justify-content: flex-start; padding: 28px 22px 19px; }
-  .auth-mobile-logo { margin-bottom: 30px; }
+  .auth-form-logo { margin-bottom: 26px; }
   .auth-form-card { margin: 0 auto; padding: 0; }
   .auth-form-heading { margin-bottom: 25px; }
   .auth-form-heading h2 { font-size: 23px; }
@@ -1060,3 +1058,23 @@ input, select, textarea { color: var(--ink); }
 :root[data-theme='dark'] .owner-card, :root[data-theme='dark'] .owner-store { border-color: var(--line-strong); }
 :root[data-theme='dark'] .password-reveal { background: var(--surface-3); border-color: var(--line-strong); }
 :root[data-theme='dark'] .admin-search input::placeholder { color: var(--muted-2); }
+
+/* Brand logo (SEMAR) */
+.brand-lockup .brand-logo { display: block; width: auto; height: 72px; max-width: 100%; object-fit: contain; border-radius: 12px; background: #fff; }
+.brand-small .brand-logo { height: 56px; }
+.sidebar-brand-row { margin-bottom: 22px; }
+.sidebar-brand-row .brand-lockup { flex: 1 1 auto; justify-content: flex-start; }
+.auth-form-logo { width: 100%; max-width: 415px; margin: auto auto 26px; }
+.auth-form-side > .auth-form-card { margin: 0 auto auto; }
+.auth-form-logo .brand-lockup { display: block; width: 100%; }
+.auth-form-logo .brand-logo { width: 100%; height: auto; border-radius: 16px; }
+.loading-brand .brand-logo { height: 110px; }
+.onboarding-card .brand-logo { width: 100%; height: auto; }
+@media (max-width: 720px) { .sidebar-brand-row .brand-logo { height: 68px; } .auth-form-logo { margin-top: 0; } }
+
+/* Dark-mode logo variant: white banner with green artwork, no extra card needed */
+.brand-lockup .brand-logo-dark { display: none; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-light { display: none; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-dark { display: block; background: transparent; border-radius: 0; }
+:root[data-theme='dark'] .auth-form-logo .brand-logo-dark { width: 100%; height: auto; }
+:root[data-theme='dark'] .onboarding-card .brand-logo-dark { width: 100%; height: auto; }
