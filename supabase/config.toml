@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.expire-static-qris-sales]
 verify_jwt = false
+
+[functions.admin-accounts]
+verify_jwt = true

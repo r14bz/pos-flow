@@ -996,4 +996,38 @@ input, select, textarea { color: var(--ink); }
 .admin-tabs button { border: 0; border-radius: 7px; padding: 8px 12px; background: transparent; color: var(--text-secondary, #667085); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .admin-tabs button.active, .admin-tabs button[aria-selected="true"] { background: var(--surface, #fff); color: var(--text-primary, #202939); box-shadow: 0 1px 3px #18223012; }
 .admin-empty-results { padding: 28px 18px; text-align: center; color: var(--text-muted, #758094); font-size: 14px; }
-@media (max-width: 680px) { .admin-toolbar { align-items: stretch; flex-direction: column; } .admin-search { min-width: 0; min-height: 38px; } .admin-tabs { display: grid; grid-template-columns: 1fr 1fr; } .admin-tabs button { white-space: normal; } }
+@media (max-width: 680px) { .admin-toolbar { align-items: stretch; flex-direction: column; } .admin-search { min-width: 0; min-height: 38px; } .admin-tabs { display: grid; grid-template-columns: repeat(3, 1fr); } .admin-tabs button { padding: 8px 6px; } .admin-tabs button { white-space: normal; } }
+
+/* Administrator: owner directory */
+.owner-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 17px; }
+.owner-card { padding: 0; overflow: hidden; }
+.owner-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px; flex-wrap: wrap; }
+.owner-ident { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.owner-ident strong { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--ink); }
+.owner-email { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent-dark); overflow-wrap: anywhere; }
+.owner-ident small { color: var(--muted); font-size: 11px; }
+.owner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.owner-actions .button { white-space: nowrap; }
+.owner-stores { border-top: 1px solid var(--line); background: var(--surface-2); padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.owner-no-store { margin: 8px 4px 2px; color: var(--muted); font-size: 12px; }
+.owner-store { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.owner-store > summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; flex-wrap: wrap; }
+.owner-store > summary::-webkit-details-marker { display: none; }
+.owner-store-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex: 0 0 auto; }
+.owner-store-main { display: flex; flex-direction: column; gap: 2px; flex: 1 1 140px; min-width: 0; }
+.owner-store-main strong { font-size: 13px; color: var(--ink); }
+.owner-store-main small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.owner-store-count { color: var(--muted); font-size: 11px; }
+.owner-store-chevron { color: var(--muted); transition: transform .15s; }
+.owner-store[open] .owner-store-chevron { transform: rotate(180deg); }
+.staff-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); padding: 4px 12px 8px; }
+.staff-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.staff-row + .staff-row { border-top: 1px solid var(--line); }
+.staff-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.staff-info strong { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--ink); }
+.staff-info small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.staff-actions { display: flex; gap: 2px; flex: 0 0 auto; }
+.staff-actions .icon-button:hover { background: var(--surface-2); color: var(--accent-dark); border-color: var(--line); }
+.password-reveal { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface-2); }
+.password-reveal code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; letter-spacing: .04em; color: var(--ink); overflow-wrap: anywhere; user-select: all; }
+@media (max-width: 640px) { .owner-actions { width: 100%; } .owner-actions .button { flex: 1; justify-content: center; } }

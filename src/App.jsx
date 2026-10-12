@@ -9,7 +9,7 @@ import {
   Wallet, X, Plus, Minus, Pencil, Trash2, RefreshCcw, Clock3, Banknote, Store, Wifi, WifiOff,
   BarChart3, CircleDollarSign, Mail, Camera, CheckCheck, DownloadCloud, Eye, EyeOff,
   AlertTriangle, SlidersHorizontal, Bluetooth, Zap, CalendarClock, KeyRound, ChevronUp,
-  ReceiptText, Send, Globe
+  ReceiptText, Send, Globe, Copy, Ban, UserCheck
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from './lib/supabase'
 import {
@@ -41,7 +41,26 @@ const normaliseProduct = (row) => ({ ...row, min_stock: row.min_stock ?? 5, icon
 const normaliseSale = (row) => ({ ...row, sale_items: row.sale_items || row.items || [], cashier_name: row.cashier_name || row.cashier?.full_name || 'Karyawan', status: row.status || 'paid' })
 function categoryIcon(category) { return ({ Minuman: '☕', Makanan: '🥐', Sembako: '🛒', Aksesoris: '📦' }[category] || '📦') }
 function categoryColor(category) { return ({ Minuman: 'peach', Makanan: 'cream', Sembako: 'mint', Aksesoris: 'lilac' }[category] || 'blue') }
-function initials(name = 'TokoFlow') { return name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() }
+function initials(name = 'TokoFlow') { return (name || '').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase() || '?' }
+async function functionErrorMessage(error, fallback) {
+  try { const body = await error?.context?.json?.(); if (body?.error) return body.error } catch { /* body is not JSON */ }
+  if (/not found|failed to send|fetch/i.test(error?.message || '')) return 'Edge function admin-accounts belum di-deploy atau tidak dapat dijangkau.'
+  return error?.message || fallback
+}
+function generatePassword(length = 12) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  const bytes = new Uint32Array(length)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, n => chars[n % chars.length]).join('')
+}
+const demoAdminOwners = [
+  { user_id: 'demo-o1', full_name: 'Ria Aditya', email: 'ria@contoh.id', created_at: new Date(Date.now() - 90 * 864e5).toISOString(), last_sign_in_at: new Date(Date.now() - 3600e3).toISOString(), suspended: false, stores: [
+    { id: 'demo-s1', name: 'Kedai Rona', city: 'Bekasi', store_code: 'KEDAI-RONA-1A2B', status: 'active', employees: [
+      { user_id: 'demo-e1', name: 'Nadia Putri', username: 'nadia', roles: ['cashier'], status: 'active', suspended: false },
+      { user_id: 'demo-e2', name: 'Dimas Saputra', username: 'dimas', roles: ['inventory', 'viewer'], status: 'active', suspended: false } ] },
+    { id: 'demo-s2', name: 'Rona Express', city: 'Jakarta Timur', store_code: 'RONA-EXP-3C4D', status: 'suspended', employees: [] } ] },
+  { user_id: 'demo-o2', full_name: 'Budi Santoso', email: 'budi@contoh.id', created_at: new Date(Date.now() - 20 * 864e5).toISOString(), last_sign_in_at: null, suspended: false, stores: [] },
+]
 function getRolePage(key) { return key }
 
 function IconButton({ icon: Icon, label, onClick, className = '', badge = false, disabled = false }) {
@@ -276,7 +295,12 @@ function App() {
   const [storeCodeBusy, setStoreCodeBusy] = useState(false)
   const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
-  const [adminTab, setAdminTab] = useState('stores')
+  const [adminTab, setAdminTab] = useState('owners')
+  const [adminDirectory, setAdminDirectory] = useState([])
+  const [adminDirLoading, setAdminDirLoading] = useState(false)
+  const [adminDirError, setAdminDirError] = useState('')
+  const [adminActionPassword, setAdminActionPassword] = useState('')
+  const [adminShowPassword, setAdminShowPassword] = useState(false)
   const [adminBusyStoreId, setAdminBusyStoreId] = useState('')
   const toastTimer = useRef(null)
   const storeProvisionPromise = useRef(null)
@@ -363,7 +387,7 @@ function App() {
       const nextStores = memberships.filter(m => m.stores).map(m => ({ ...m.stores, role: m.role, roles: [...new Set([m.role, ...extraRoles.filter(r => r.store_id === m.store_id).map(r => r.role)])] }))
       setStores(nextStores)
       setStoreId(current => nextStores.some(s => s.id === current) ? current : (nextStores[0]?.id || ''))
-      if (profileRes.data?.is_super_admin) loadAdminSummary()
+      if (profileRes.data?.is_super_admin) { loadAdminSummary(); loadAdminDirectory() }
       setLoadingData(false)
     }
     hydrate()
@@ -394,6 +418,54 @@ function App() {
     if (membershipError) showToast(`Data anggota toko belum dapat dimuat: ${membershipError.message}`, 'error')
   }, [showToast])
 
+  const loadAdminDirectory = useCallback(async () => {
+    if (!supabase) return
+    setAdminDirLoading(true); setAdminDirError('')
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-accounts', { body: { action: 'directory' } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setAdminDirectory(data?.owners || [])
+    } catch (err) { setAdminDirError(await functionErrorMessage(err, 'Gagal memuat daftar pemilik.')) }
+    finally { setAdminDirLoading(false) }
+  }, [])
+
+  const refreshAdmin = useCallback(() => { loadAdminSummary(); loadAdminDirectory() }, [loadAdminSummary, loadAdminDirectory])
+
+  const submitAdminReset = async (e) => {
+    e.preventDefault()
+    if (demo) return showToast('Aksi ini tidak tersedia pada mode demo.', 'error')
+    if (!modal?.target?.user_id) return
+    if (adminActionPassword.length < 8) return showToast('Kata sandi harus minimal 8 karakter.', 'error')
+    setSavingForm(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-accounts', { body: { action: 'reset_password', user_id: modal.target.user_id, password: adminActionPassword } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setModal({ ...modal, done: true, doneMessage: data?.message, doneSessionsRevoked: data?.sessions_revoked })
+      loadAdminSummary()
+    } catch (err) { showToast(await functionErrorMessage(err, 'Gagal mengatur ulang kata sandi.'), 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const submitAdminSuspend = async () => {
+    if (demo) return showToast('Aksi ini tidak tersedia pada mode demo.', 'error')
+    const target = modal?.target
+    if (!target?.user_id) return
+    setSavingForm(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-accounts', { body: { action: target.suspended ? 'reactivate' : 'suspend', user_id: target.user_id } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setModal(null)
+      showToast(target.suspended ? 'Akun diaktifkan kembali.' : 'Akun ditangguhkan. Pengguna tidak dapat login.')
+      refreshAdmin()
+    } catch (err) { showToast(await functionErrorMessage(err, 'Gagal mengubah status akun.'), 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const openAdminReset = (target) => { setAdminActionPassword(''); setAdminShowPassword(false); setModal({ type: 'admin-reset', target }) }
+
   const setAdminStoreStatus = useCallback(async (store) => {
     if (!supabase || !store?.id || !isSuperAdmin) return
     const nextStatus = store.status === 'suspended' ? 'active' : 'suspended'
@@ -409,7 +481,8 @@ function App() {
     }
     showToast(nextStatus === 'suspended' ? 'Toko berhasil ditangguhkan.' : 'Toko berhasil diaktifkan kembali.')
     await loadAdminSummary()
-  }, [profile?.is_super_admin, demo, loadAdminSummary, showToast])
+    loadAdminDirectory()
+  }, [profile?.is_super_admin, demo, loadAdminSummary, loadAdminDirectory, showToast])
 
   const currentStore = stores.find(s => s.id === storeId) || (demo ? demoStores.find(s => s.id === storeId) : null) || stores[0] || null
   useEffect(() => { setStoreCodeDraft(currentStore?.store_code || '') }, [currentStore?.id, currentStore?.store_code])
@@ -1116,20 +1189,24 @@ function App() {
     const filteredAdminStores = (demo ? demoStores.map(s => ({ ...s, status: 'active' })) : adminStores).filter(store =>
       [store.name, store.city, store.id].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
     )
-    const filteredAdminUsers = (demo ? [{ id: 'demo-user', full_name: 'Ria Aditya', is_super_admin: true }, ...Array.from({ length: 5 }, (_, i) => ({ id: `demo-u-${i}`, full_name: ['Dian Lestari', 'Budi Santoso', 'Intan Prameswari', 'Agus Setiawan', 'Maya Putri'][i], is_super_admin: false }))] : adminUsers).filter(user =>
-      [user.full_name, user.id, user.is_super_admin ? 'administrator' : 'pengguna'].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
-    )
+    const ownerInfoById = Object.fromEntries((demo ? demoAdminOwners : adminDirectory).map(o => [o.user_id, o]))
+    const filteredOwners = (demo ? demoAdminOwners : adminDirectory).filter(owner => !term || [
+      owner.full_name, owner.email,
+      ...owner.stores.flatMap(st => [st.name, st.city, st.store_code, ...st.employees.flatMap(emp => [emp.name, emp.username, emp.email])]),
+    ].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term)))
+    const rolesText = (roles = []) => roles.map(roleLabel).join(', ') || '—'
+    const lastLogin = (value) => value ? formatDate(value, { year: 'numeric' }) : 'Belum pernah login'
     const filteredAuditLogs = adminAuditLogs.filter(log =>
       [log.action, log.target_type, log.target_id, log.actor_id, JSON.stringify(log.details || {})].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
     )
-    const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko' }[action] || action || 'Aktivitas admin')
+    const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko', account_password_reset: 'Reset kata sandi akun', account_suspended: 'Akun ditangguhkan', account_reactivated: 'Akun diaktifkan kembali' }[action] || action || 'Aktivitas admin')
     return <>
-      <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola toko dan akun yang terdaftar di platform." actions={<button className="button button-secondary" onClick={loadAdminSummary}><RefreshCcw size={16} /> Muat ulang</button>} />
+      <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola pemilik, toko, dan akun karyawan di platform." actions={<button className="button button-secondary" onClick={refreshAdmin} disabled={adminDirLoading}><RefreshCcw size={16} /> Muat ulang</button>} />
       <div className="admin-toolbar panel">
-        <div className="admin-search"><Search size={17} /><input value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Cari nama toko, lokasi, ID, atau aktivitas…" aria-label="Cari data administrator" /><button className="button button-secondary button-sm" onClick={() => setAdminSearch('')} disabled={!adminSearch}>Reset</button></div>
+        <div className="admin-search"><Search size={17} /><input value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Cari pemilik, email, toko, karyawan, atau aktivitas…" aria-label="Cari data administrator" /><button className="button button-secondary button-sm" onClick={() => setAdminSearch('')} disabled={!adminSearch}>Reset</button></div>
         <div className="admin-tabs" role="tablist" aria-label="Jenis data administrator">
+          <button role="tab" aria-selected={adminTab === 'owners'} className={adminTab === 'owners' ? 'active' : ''} onClick={() => setAdminTab('owners')}>Pemilik ({filteredOwners.length})</button>
           <button role="tab" aria-selected={adminTab === 'stores'} className={adminTab === 'stores' ? 'active' : ''} onClick={() => setAdminTab('stores')}>Toko ({filteredAdminStores.length})</button>
-          <button role="tab" aria-selected={adminTab === 'users'} className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>Akun ({filteredAdminUsers.length})</button>
           <button role="tab" aria-selected={adminTab === 'audit'} className={adminTab === 'audit' ? 'active' : ''} onClick={() => setAdminTab('audit')}>Audit ({filteredAuditLogs.length})</button>
         </div>
       </div>
@@ -1139,8 +1216,53 @@ function App() {
         <KPI icon={ShieldCheck} label="Toko aktif" value={(demo ? demoStores.length : adminStores.filter(s => s.status !== 'suspended').length).toLocaleString('id-ID')} trendLabel="Dapat diakses anggota" tone="purple" />
         <KPI icon={Activity} label="Audit terbaru" value={adminAuditLogs.length.toLocaleString('id-ID')} trendLabel="Catatan yang tersedia" tone="amber" />
       </div>
-      {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Penangguhan toko memblokir akses anggota melalui kebijakan database.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Pemilik</th><th>Lokasi</th><th>ID toko</th><th>Cabang &amp; anggota</th><th>Dibuat</th><th>Status</th>{!demo && <th>Tindakan</th>}</tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td><div><strong>{adminUsers.find(u => u.id === s.owner_id)?.full_name || 'Belum teridentifikasi'}</strong><small className="mono-text" style={{ display: 'block' }}>{s.owner_id || '—'}</small></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.store_code || '—'}</span><small className="mono-text" style={{ display: 'block' }}>UUID: {s.id}</small></td><td><details><summary>{adminMemberships.filter(m => m.store_id === s.id).length} anggota</summary><div className="admin-branch-team"><strong>Anggota cabang</strong>{adminMemberships.filter(m => m.store_id === s.id).map(m => <div key={m.store_id + m.user_id + m.role}>{adminUsers.find(u => u.id === m.user_id)?.full_name || m.user_id.slice(0, 8)} <span>{m.role}</span></div>)}{adminMemberships.filter(m => m.store_id === s.id).length === 0 && <small>Belum ada anggota yang tercatat.</small>}</div></details></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status={s.status === 'suspended' ? 'suspended' : 'active'} /></td>{!demo && <td><button className={`button button-sm ${s.status === 'suspended' ? 'button-primary' : 'button-secondary'}`} disabled={adminBusyStoreId === s.id} onClick={() => setAdminStoreStatus(s)}>{adminBusyStoreId === s.id ? <span className="spinner" /> : s.status === 'suspended' ? 'Aktifkan' : 'Tangguhkan'}</button></td>}</tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
-      {adminTab === 'users' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Akun pengguna</h3><p>Akun yang terlihat dari database otorisasi.</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama pengguna</th><th>ID akun</th><th>Peran platform</th><th>Dibuat</th></tr></thead><tbody>{filteredAdminUsers.map(u => <tr key={u.id}><td><div className="employee-name-cell"><span className="avatar avatar-owner">{initials(u.full_name)}</span><strong>{u.full_name || 'Pengguna'}</strong></div></td><td><span className="mono-text">{u.id}</span></td><td>{u.is_super_admin ? <span className="role-pill owner">Administrator</span> : <span className="role-pill viewer">Pengguna</span>}</td><td>{u.created_at ? formatDate(u.created_at, { year: 'numeric' }) : 'Data demo'}</td></tr>)}</tbody></table>{filteredAdminUsers.length === 0 && <div className="admin-empty-results">Tidak ada akun yang cocok dengan pencarian.</div>}</div></section>}
+      {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Penangguhan toko memblokir akses anggota melalui kebijakan database.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Pemilik</th><th>Lokasi</th><th>ID toko</th><th>Cabang &amp; anggota</th><th>Dibuat</th><th>Status</th>{!demo && <th>Tindakan</th>}</tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td><div><strong>{ownerInfoById[s.owner_id]?.full_name || adminUsers.find(u => u.id === s.owner_id)?.full_name || 'Belum teridentifikasi'}</strong><small style={{ display: 'block' }}>{ownerInfoById[s.owner_id]?.email || s.owner_id || '—'}</small></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.store_code || '—'}</span><small className="mono-text" style={{ display: 'block' }}>UUID: {s.id}</small></td><td><details><summary>{adminMemberships.filter(m => m.store_id === s.id).length} anggota</summary><div className="admin-branch-team"><strong>Anggota cabang</strong>{adminMemberships.filter(m => m.store_id === s.id).map(m => <div key={m.store_id + m.user_id + m.role}>{adminUsers.find(u => u.id === m.user_id)?.full_name || m.user_id.slice(0, 8)} <span>{m.role}</span></div>)}{adminMemberships.filter(m => m.store_id === s.id).length === 0 && <small>Belum ada anggota yang tercatat.</small>}</div></details></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status={s.status === 'suspended' ? 'suspended' : 'active'} /></td>{!demo && <td><button className={`button button-sm ${s.status === 'suspended' ? 'button-primary' : 'button-secondary'}`} disabled={adminBusyStoreId === s.id} onClick={() => setAdminStoreStatus(s)}>{adminBusyStoreId === s.id ? <span className="spinner" /> : s.status === 'suspended' ? 'Aktifkan' : 'Tangguhkan'}</button></td>}</tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
+      {adminTab === 'owners' && <section className="owner-list">
+        {adminDirError && <div className="admin-warning"><AlertTriangle size={18} /><p><strong>Daftar pemilik belum bisa dimuat.</strong> {adminDirError}</p></div>}
+        {adminDirLoading && !filteredOwners.length && <div className="admin-empty-results"><span className="spinner" /> Memuat pemilik…</div>}
+        {filteredOwners.map(owner => <article className="owner-card panel" key={owner.user_id}>
+          <header className="owner-head">
+            <span className="avatar avatar-owner">{initials(owner.full_name || owner.email)}</span>
+            <div className="owner-ident">
+              <strong>{owner.full_name || 'Tanpa nama'}{owner.suspended && <StatusPill status="suspended" />}</strong>
+              <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
+              <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
+            </div>
+            <div className="owner-actions">
+              <button className="button button-secondary button-sm" onClick={() => openAdminReset({ user_id: owner.user_id, label: owner.full_name || owner.email, sub: owner.email, kind: 'owner' })}><KeyRound size={14} /> Reset sandi</button>
+              <button className={`button button-sm ${owner.suspended ? 'button-primary' : 'button-secondary'}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: owner.user_id, label: owner.full_name || owner.email, suspended: owner.suspended, kind: 'owner', storeCount: owner.stores.length } })}>{owner.suspended ? <><UserCheck size={14} /> Aktifkan</> : <><Ban size={14} /> Tangguhkan</>}</button>
+            </div>
+          </header>
+          <div className="owner-stores">
+            {owner.stores.length === 0 && <p className="owner-no-store">Belum memiliki toko.</p>}
+            {owner.stores.map(st => <details className="owner-store" key={st.id}>
+              <summary>
+                <span className="owner-store-icon"><Store size={15} /></span>
+                <span className="owner-store-main"><strong>{st.name}</strong><small>{[st.city, st.store_code].filter(Boolean).join(' · ') || '—'}</small></span>
+                <StatusPill status={st.status === 'suspended' ? 'suspended' : 'active'} />
+                <span className="owner-store-count">{st.employees.length} karyawan</span>
+                <ChevronDown size={15} className="owner-store-chevron" />
+              </summary>
+              <div className="staff-list">
+                {st.employees.length === 0 && <small className="owner-no-store">Belum ada akun karyawan.</small>}
+                {st.employees.map(emp => <div className="staff-row" key={emp.user_id}>
+                  <span className="avatar avatar-cashier">{initials(emp.name)}</span>
+                  <div className="staff-info">
+                    <strong>{emp.name}{emp.suspended && <StatusPill status="suspended" />}</strong>
+                    <small>{[emp.username && `@${emp.username}`, emp.email, rolesText(emp.roles)].filter(Boolean).join(' · ')}</small>
+                    <small>Login terakhir: {lastLogin(emp.last_sign_in_at)}</small>
+                  </div>
+                  <div className="staff-actions">
+                    <button className="icon-button" title="Reset kata sandi" aria-label={`Reset kata sandi ${emp.name}`} onClick={() => openAdminReset({ user_id: emp.user_id, label: emp.name, sub: emp.username ? `@${emp.username} · ${st.name}` : st.name, kind: 'employee' })}><KeyRound size={15} /></button>
+                    <button className="icon-button" title={emp.suspended ? 'Aktifkan akun' : 'Tangguhkan akun'} aria-label={emp.suspended ? `Aktifkan ${emp.name}` : `Tangguhkan ${emp.name}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: emp.user_id, label: emp.name, suspended: emp.suspended, kind: 'employee' } })}>{emp.suspended ? <UserCheck size={15} /> : <Ban size={15} />}</button>
+                  </div>
+                </div>)}
+              </div>
+            </details>)}
+          </div>
+        </article>)}
+        {!adminDirLoading && !adminDirError && filteredOwners.length === 0 && <div className="admin-empty-results">Tidak ada pemilik yang cocok dengan pencarian.</div>}
+      </section>}
       {adminTab === 'audit' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Riwayat audit administrator</h3><p>Catatan perubahan administratif terbaru yang tersimpan di database.</p></div></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Aktivitas</th><th>Target</th><th>ID target</th><th>Detail</th><th>Waktu</th></tr></thead><tbody>{filteredAuditLogs.map(log => <tr key={log.id}><td>{auditActionLabel(log.action)}</td><td>{log.target_type === 'store' ? 'Toko' : 'Akun'}</td><td><span className="mono-text">{log.target_id}</span></td><td><span className="audit-details">{JSON.stringify(log.details || {})}</span></td><td>{log.created_at ? formatDate(log.created_at, { year: 'numeric', month: 'short', day: '2-digit' }) : '—'}</td></tr>)}</tbody></table>{filteredAuditLogs.length === 0 && <div className="admin-empty-results">{demo ? 'Riwayat audit hanya tersedia pada mode database.' : 'Belum ada aktivitas audit atau migrasi database belum diterapkan.'}</div>}</div></section>}
       <div className="admin-warning"><ShieldCheck size={18} /><p><strong>Keamanan administrator.</strong> Perubahan status toko dilakukan melalui RPC yang memverifikasi superadmin dan mencatat audit dalam transaksi yang sama. Akses admin hanya boleh diberikan melalui backend tepercaya.</p></div>
     </>
@@ -1201,6 +1323,22 @@ function App() {
 
     {modal?.type === 'employee-delete' && <Modal title="Hapus akun karyawan?" subtitle={`Akun ${modal.employee?.username || ''} akan dihapus dari toko ini.`} onClose={() => setModal(null)}><div className="form-stack"><div className="role-info-box"><AlertTriangle size={18} /><p>Tindakan ini tidak dapat dibatalkan. Jika akun tidak terhubung ke toko lain, akun login karyawan juga akan dihapus. Riwayat transaksi tidak dihapus oleh tindakan ini.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="button" className="button button-primary" disabled={savingForm} onClick={deleteEmployee}>{savingForm ? <span className="spinner" /> : <Trash2 size={16} />} Hapus akun</button></div></div></Modal>}
 
+    {modal?.type === 'admin-reset' && <Modal title="Reset kata sandi" subtitle={`${modal.target?.kind === 'employee' ? 'Karyawan' : 'Pemilik'}: ${modal.target?.label || ''}${modal.target?.sub ? ` — ${modal.target.sub}` : ''}`} onClose={() => setModal(null)}>
+      {modal.done ? <div className="form-stack">
+        <div className="role-info-box"><CheckCircle2 size={17} /><p>{modal.doneMessage || 'Kata sandi berhasil diubah.'} Salin kata sandi di bawah dan berikan langsung kepada pengguna. Kata sandi ini tidak akan ditampilkan lagi.</p></div>
+        <div className="password-reveal"><code>{adminActionPassword}</code><button type="button" className="button button-secondary button-sm" onClick={() => { navigator.clipboard?.writeText(adminActionPassword).then(() => showToast('Kata sandi disalin.'), () => showToast('Gagal menyalin. Salin manual.', 'error')) }}><Copy size={14} /> Salin</button></div>
+        <div className="modal-form-actions"><button type="button" className="button button-primary" onClick={() => { setModal(null); setAdminActionPassword('') }}>Selesai</button></div>
+      </div> : <form className="form-stack" onSubmit={submitAdminReset}>
+        <label>Kata sandi baru<div className="password-input"><input type={adminShowPassword ? 'text' : 'password'} value={adminActionPassword} onChange={e => setAdminActionPassword(e.target.value)} placeholder="Minimal 8 karakter" minLength={8} autoComplete="new-password" required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setAdminShowPassword(v => !v)}>{adminShowPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+        <button type="button" className="button button-secondary button-sm" onClick={() => { setAdminActionPassword(generatePassword()); setAdminShowPassword(true) }}><RefreshCcw size={14} /> Buat kata sandi acak</button>
+        <div className="role-info-box"><KeyRound size={17} /><p>{modal.target?.kind === 'employee' ? 'Sesi login lama karyawan akan dicabut.' : 'Pemilik perlu login ulang dengan kata sandi baru.'} Aksi ini dicatat di riwayat audit.</p></div>
+        <div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan kata sandi</button></div>
+      </form>}
+    </Modal>}
+    {modal?.type === 'admin-suspend' && <Modal title={modal.target?.suspended ? 'Aktifkan kembali akun?' : 'Tangguhkan akun?'} subtitle={modal.target?.label} onClose={() => setModal(null)} width="small"><div className="form-stack">
+      <div className="role-info-box"><ShieldCheck size={17} /><p>{modal.target?.suspended ? 'Pengguna dapat login kembali.' : `Pengguna tidak dapat login sampai diaktifkan kembali.${modal.target?.kind === 'owner' && modal.target?.storeCount ? ' Toko miliknya tetap tercatat; gunakan tombol Tangguhkan di tab Toko untuk menutup akses karyawan.' : ''}`} Aksi ini dicatat di riwayat audit.</p></div>
+      <div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="button" className="button button-primary" onClick={submitAdminSuspend} disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} {modal.target?.suspended ? 'Aktifkan' : 'Tangguhkan'}</button></div>
+    </div></Modal>}
     {modal?.type === 'employee-reset' && <Modal title="Atur ulang kata sandi" subtitle={`Akun karyawan: ${modal.employee?.username || ''}. Kata sandi lama tidak dapat dilihat.`} onClose={() => setModal(null)}><form className="form-stack" onSubmit={resetEmployeePassword}><label>Kata sandi baru<input type="password" value={employeeResetPassword} onChange={e => setEmployeeResetPassword(e.target.value)} placeholder="Minimal 8 karakter" minLength={8} autoComplete="new-password" required /></label><div className="role-info-box"><KeyRound size={17} /><p>Berikan kata sandi baru ini langsung kepada karyawan secara aman.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan kata sandi</button></div></form></Modal>}
 
     {modal?.type === 'store' && <Modal title="Tambah toko baru" subtitle="Setiap toko memiliki inventaris dan laporan terpisah." onClose={() => setModal(null)}><form className="form-stack" onSubmit={createStore}><label>Nama toko<input autoFocus value={storeDraft.name} onChange={e => setStoreDraft({ ...storeDraft, name: e.target.value })} placeholder="Contoh: Cabang Selatan" required /></label><label>Kota / lokasi<input value={storeDraft.city} onChange={e => setStoreDraft({ ...storeDraft, city: e.target.value })} placeholder="Contoh: Bekasi" /></label><div className="role-info-box"><LockKeyhole size={17} /><p>Barang dan transaksi toko baru tidak otomatis bercampur dengan toko yang sudah ada.</p></div><div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Plus size={16} />} Buat toko</button></div></form></Modal>}
