@@ -206,7 +206,9 @@ input, select, textarea { color: var(--ink); }
 .install-button:hover { background: var(--accent-soft); }
 .topbar-notification-wrap { position: relative; }
 .notification-trigger { border-color: var(--line); background: var(--surface); color: var(--muted); }
-.topbar-theme { border-color: var(--line); background: var(--surface); }
+.topbar-theme { display: inline-flex; align-items: center; justify-content: center; width: 37px; height: 37px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: none; outline: none; vertical-align: middle; }
+.topbar-theme:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.topbar-theme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .topbar-divider { width: 1px; height: 27px; background: var(--line); }
 .topbar-profile { display: flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; }
 .top-avatar { width: 32px; height: 32px; }
