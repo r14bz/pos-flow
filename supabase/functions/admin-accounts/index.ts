@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   const { data: actorProfile } = await admin.from('profiles').select('is_super_admin').eq('id', actorId).maybeSingle()
   if (!actorProfile?.is_super_admin) return json({ error: 'Akses administrator pusat diperlukan.' }, 403)
 
-  let body: { action?: string; user_id?: string; password?: string }
+  let body: { action?: string; user_id?: string; password?: string; store_id?: string; confirm?: string }
   try { body = await req.json() } catch { return json({ error: 'Payload tidak valid.' }, 400) }
   const action = String(body.action || '')
 
@@ -131,10 +131,38 @@ Deno.serve(async (req) => {
     return json({ owners })
   }
 
+
+  // Remove Auth users that were created as employee accounts of a deleted store (never real invited users).
+  const cleanupStaff = async (ids: string[]) => {
+    let removed = 0
+    for (const id of ids) {
+      const { data: u } = await admin.auth.admin.getUserById(id)
+      if (!u?.user || u.user.user_metadata?.employee_account !== true) continue
+      const { data: left } = await admin.from('store_memberships').select('store_id').eq('user_id', id).limit(1)
+      if (left?.length) continue
+      await admin.from('employees').delete().eq('user_id', id)
+      const { error } = await admin.auth.admin.deleteUser(id)
+      if (!error) removed++
+    }
+    return removed
+  }
+  const sameText = (a: unknown, b: unknown) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase()
+
+  // ---------- delete store ----------
+  if (action === 'delete_store') {
+    const storeId = String(body.store_id || '').trim()
+    if (!/^[0-9a-f-]{36}$/i.test(storeId)) return json({ error: 'Toko tidak valid.' }, 400)
+    // Runs as the caller so auth.uid()/is_super_admin() inside the SQL function are the real administrator.
+    const { data, error } = await userClient.rpc('admin_delete_store', { p_store_id: storeId, p_confirm: String(body.confirm || '') })
+    if (error) return json({ error: error.message }, error.code === '42501' ? 403 : 400)
+    const accountsRemoved = await cleanupStaff((data?.staff_user_ids || []) as string[])
+    return json({ deleted: true, sales_deleted: data?.sales_deleted ?? 0, staff_accounts_removed: accountsRemoved })
+  }
+
   // ---------- account actions ----------
   const targetId = String(body.user_id || '').trim()
   if (!/^[0-9a-f-]{36}$/i.test(targetId)) return json({ error: 'Akun tidak valid.' }, 400)
-  if (!['reset_password', 'suspend', 'reactivate'].includes(action)) return json({ error: 'Aksi tidak valid.' }, 400)
+  if (!['reset_password', 'suspend', 'reactivate', 'delete_account'].includes(action)) return json({ error: 'Aksi tidak valid.' }, 400)
 
   const { data: targetAuth, error: targetError } = await admin.auth.admin.getUserById(targetId)
   if (targetError || !targetAuth?.user) return json({ error: 'Akun tidak ditemukan.' }, 404)
@@ -166,6 +194,40 @@ Deno.serve(async (req) => {
         ? 'Kata sandi diubah dan sesi lama karyawan dicabut.'
         : 'Kata sandi pemilik diubah. Sesi yang sedang aktif berakhir saat token disegarkan; minta pemilik login ulang.',
     })
+  }
+
+  if (action === 'delete_account') {
+    if (targetId === actorId) return json({ error: 'Anda tidak dapat menghapus akun sendiri.' }, 400)
+
+    if (kind === 'employee') {
+      const { data: emp } = await admin.from('employees').select('name,username').eq('user_id', targetId).limit(1).maybeSingle()
+      const expected = emp?.username || emp?.name || label
+      if (!sameText(body.confirm, expected)) return json({ error: 'Konfirmasi tidak cocok.' }, 400)
+      for (const table of ['store_membership_roles', 'employees', 'store_memberships']) {
+        const { error } = await admin.from(table).delete().eq('user_id', targetId)
+        if (error) return json({ error: error.message }, 400)
+      }
+      const { error } = await admin.auth.admin.deleteUser(targetId)
+      if (error) return json({ error: 'Akses toko dihapus, tetapi akun autentikasi belum terhapus: ' + error.message }, 500)
+      await audit('account_deleted', targetId, { account: label, kind })
+      return json({ deleted: true })
+    }
+
+    // Owner: requires typing the email; removes every owned store (with transactions) and the account itself.
+    if (!target.email || !sameText(body.confirm, target.email)) return json({ error: 'Konfirmasi email tidak cocok.' }, 400)
+    const { data: owned, error: ownedError } = await admin.from('stores').select('id,name').eq('owner_id', targetId)
+    if (ownedError) return json({ error: ownedError.message }, 500)
+    let storesDeleted = 0, staffRemoved = 0
+    for (const st of owned || []) {
+      const { data, error } = await userClient.rpc('admin_delete_store', { p_store_id: st.id, p_confirm: st.name })
+      if (error) return json({ error: `Toko "${st.name}" gagal dihapus: ${error.message}. ${storesDeleted} toko sebelumnya sudah terhapus.` }, 400)
+      storesDeleted++
+      staffRemoved += await cleanupStaff((data?.staff_user_ids || []) as string[])
+    }
+    const { error: deleteError } = await admin.auth.admin.deleteUser(targetId)
+    if (deleteError) return json({ error: 'Toko sudah dihapus, tetapi akun pemilik belum terhapus: ' + deleteError.message }, 500)
+    await audit('account_deleted', targetId, { account: label, email: target.email, kind, stores_deleted: storesDeleted, staff_accounts_removed: staffRemoved })
+    return json({ deleted: true, stores_deleted: storesDeleted, staff_accounts_removed: staffRemoved })
   }
 
   if (action === 'suspend' || action === 'reactivate') {

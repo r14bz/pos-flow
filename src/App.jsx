@@ -301,6 +301,7 @@ function App() {
   const [adminDirError, setAdminDirError] = useState('')
   const [adminActionPassword, setAdminActionPassword] = useState('')
   const [adminShowPassword, setAdminShowPassword] = useState(false)
+  const [adminDeleteConfirm, setAdminDeleteConfirm] = useState('')
   const [adminBusyStoreId, setAdminBusyStoreId] = useState('')
   const toastTimer = useRef(null)
   const storeProvisionPromise = useRef(null)
@@ -461,6 +462,28 @@ function App() {
       showToast(target.suspended ? 'Akun diaktifkan kembali.' : 'Akun ditangguhkan. Pengguna tidak dapat login.')
       refreshAdmin()
     } catch (err) { showToast(await functionErrorMessage(err, 'Gagal mengubah status akun.'), 'error') }
+    finally { setSavingForm(false) }
+  }
+
+  const openAdminDelete = (target) => { setAdminDeleteConfirm(''); setModal({ type: 'admin-delete', target }) }
+
+  const submitAdminDelete = async (e) => {
+    e.preventDefault()
+    if (demo) return showToast('Aksi ini tidak tersedia pada mode demo.', 'error')
+    const target = modal?.target
+    if (!target?.id) return
+    setSavingForm(true)
+    try {
+      const body = target.kind === 'store'
+        ? { action: 'delete_store', store_id: target.id, confirm: adminDeleteConfirm.trim() }
+        : { action: 'delete_account', user_id: target.id, confirm: adminDeleteConfirm.trim() }
+      const { data, error } = await supabase.functions.invoke('admin-accounts', { body })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setModal(null); setAdminDeleteConfirm('')
+      showToast(target.kind === 'store' ? 'Toko dihapus permanen.' : target.kind === 'owner' ? 'Pemilik beserta toko-tokonya dihapus permanen.' : 'Akun karyawan dihapus.')
+      refreshAdmin()
+    } catch (err) { showToast(await functionErrorMessage(err, 'Gagal menghapus.'), 'error') }
     finally { setSavingForm(false) }
   }
 
@@ -1199,7 +1222,7 @@ function App() {
     const filteredAuditLogs = adminAuditLogs.filter(log =>
       [log.action, log.target_type, log.target_id, log.actor_id, JSON.stringify(log.details || {})].some(value => String(value || '').toLocaleLowerCase('id-ID').includes(term))
     )
-    const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko', account_password_reset: 'Reset kata sandi akun', account_suspended: 'Akun ditangguhkan', account_reactivated: 'Akun diaktifkan kembali' }[action] || action || 'Aktivitas admin')
+    const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko', account_password_reset: 'Reset kata sandi akun', account_suspended: 'Akun ditangguhkan', account_reactivated: 'Akun diaktifkan kembali', account_deleted: 'Akun dihapus', store_deleted: 'Toko dihapus' }[action] || action || 'Aktivitas admin')
     return <>
       <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola pemilik, toko, dan akun karyawan di platform." actions={<button className="button button-secondary" onClick={refreshAdmin} disabled={adminDirLoading}><RefreshCcw size={16} /> Muat ulang</button>} />
       <div className="admin-toolbar panel">
@@ -1216,7 +1239,7 @@ function App() {
         <KPI icon={ShieldCheck} label="Toko aktif" value={(demo ? demoStores.length : adminStores.filter(s => s.status !== 'suspended').length).toLocaleString('id-ID')} trendLabel="Dapat diakses anggota" tone="purple" />
         <KPI icon={Activity} label="Audit terbaru" value={adminAuditLogs.length.toLocaleString('id-ID')} trendLabel="Catatan yang tersedia" tone="amber" />
       </div>
-      {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Penangguhan toko memblokir akses anggota melalui kebijakan database.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Pemilik</th><th>Lokasi</th><th>ID toko</th><th>Cabang &amp; anggota</th><th>Dibuat</th><th>Status</th>{!demo && <th>Tindakan</th>}</tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td><div><strong>{ownerInfoById[s.owner_id]?.full_name || adminUsers.find(u => u.id === s.owner_id)?.full_name || 'Belum teridentifikasi'}</strong><small style={{ display: 'block' }}>{ownerInfoById[s.owner_id]?.email || s.owner_id || '—'}</small></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.store_code || '—'}</span><small className="mono-text" style={{ display: 'block' }}>UUID: {s.id}</small></td><td><details><summary>{adminMemberships.filter(m => m.store_id === s.id).length} anggota</summary><div className="admin-branch-team"><strong>Anggota cabang</strong>{adminMemberships.filter(m => m.store_id === s.id).map(m => <div key={m.store_id + m.user_id + m.role}>{adminUsers.find(u => u.id === m.user_id)?.full_name || m.user_id.slice(0, 8)} <span>{m.role}</span></div>)}{adminMemberships.filter(m => m.store_id === s.id).length === 0 && <small>Belum ada anggota yang tercatat.</small>}</div></details></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status={s.status === 'suspended' ? 'suspended' : 'active'} /></td>{!demo && <td><button className={`button button-sm ${s.status === 'suspended' ? 'button-primary' : 'button-secondary'}`} disabled={adminBusyStoreId === s.id} onClick={() => setAdminStoreStatus(s)}>{adminBusyStoreId === s.id ? <span className="spinner" /> : s.status === 'suspended' ? 'Aktifkan' : 'Tangguhkan'}</button></td>}</tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
+      {adminTab === 'stores' && <section className="panel admin-table-panel"><div className="panel-heading"><div><h3>Daftar toko</h3><p>Penangguhan toko memblokir akses anggota melalui kebijakan database.</p></div><span className="admin-access-pill"><ShieldCheck size={14} /> Admin terverifikasi</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Nama toko</th><th>Pemilik</th><th>Lokasi</th><th>ID toko</th><th>Cabang &amp; anggota</th><th>Dibuat</th><th>Status</th>{!demo && <th>Tindakan</th>}</tr></thead><tbody>{filteredAdminStores.map(s => <tr key={s.id}><td><div className="admin-store-cell"><span><Store size={16} /></span><strong>{s.name}</strong></div></td><td><div><strong>{ownerInfoById[s.owner_id]?.full_name || adminUsers.find(u => u.id === s.owner_id)?.full_name || 'Belum teridentifikasi'}</strong><small style={{ display: 'block' }}>{ownerInfoById[s.owner_id]?.email || s.owner_id || '—'}</small></div></td><td>{s.city || 'Belum diatur'}</td><td><span className="mono-text">{s.store_code || '—'}</span><small className="mono-text" style={{ display: 'block' }}>UUID: {s.id}</small></td><td><details><summary>{adminMemberships.filter(m => m.store_id === s.id).length} anggota</summary><div className="admin-branch-team"><strong>Anggota cabang</strong>{adminMemberships.filter(m => m.store_id === s.id).map(m => <div key={m.store_id + m.user_id + m.role}>{adminUsers.find(u => u.id === m.user_id)?.full_name || m.user_id.slice(0, 8)} <span>{m.role}</span></div>)}{adminMemberships.filter(m => m.store_id === s.id).length === 0 && <small>Belum ada anggota yang tercatat.</small>}</div></details></td><td>{s.created_at ? formatDate(s.created_at, { year: 'numeric' }) : 'Data demo'}</td><td><StatusPill status={s.status === 'suspended' ? 'suspended' : 'active'} /></td>{!demo && <td><button className={`button button-sm ${s.status === 'suspended' ? 'button-primary' : 'button-secondary'}`} disabled={adminBusyStoreId === s.id} onClick={() => setAdminStoreStatus(s)}>{adminBusyStoreId === s.id ? <span className="spinner" /> : s.status === 'suspended' ? 'Aktifkan' : 'Tangguhkan'}</button> <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'store', id: s.id, label: s.name, expected: s.name, warning: `Toko "${s.name}" akan dihapus permanen beserta seluruh produk, stok, riwayat transaksi, dan ${adminMemberships.filter(m => m.store_id === s.id && m.user_id !== s.owner_id).length} akun anggota. Tindakan ini tidak dapat dibatalkan.` })}><Trash2 size={14} /></button></td>}</tr>)}</tbody></table>{filteredAdminStores.length === 0 && <div className="admin-empty-results">Tidak ada toko yang cocok dengan pencarian.</div>}</div></section>}
       {adminTab === 'owners' && <section className="owner-list">
         {adminDirError && <div className="admin-warning"><AlertTriangle size={18} /><p><strong>Daftar pemilik belum bisa dimuat.</strong> {adminDirError}</p></div>}
         {adminDirLoading && !filteredOwners.length && <div className="admin-empty-results"><span className="spinner" /> Memuat pemilik…</div>}
@@ -1231,6 +1254,7 @@ function App() {
             <div className="owner-actions">
               <button className="button button-secondary button-sm" onClick={() => openAdminReset({ user_id: owner.user_id, label: owner.full_name || owner.email, sub: owner.email, kind: 'owner' })}><KeyRound size={14} /> Reset sandi</button>
               <button className={`button button-sm ${owner.suspended ? 'button-primary' : 'button-secondary'}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: owner.user_id, label: owner.full_name || owner.email, suspended: owner.suspended, kind: 'owner', storeCount: owner.stores.length } })}>{owner.suspended ? <><UserCheck size={14} /> Aktifkan</> : <><Ban size={14} /> Tangguhkan</>}</button>
+              <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'owner', id: owner.user_id, label: owner.full_name || owner.email, expected: owner.email, warning: `Akun ${owner.email} akan dihapus permanen beserta ${owner.stores.length} toko miliknya, seluruh produk, stok, riwayat transaksi, dan ${owner.stores.reduce((n, st) => n + st.employees.length, 0)} akun karyawan. Tindakan ini tidak dapat dibatalkan.` })} disabled={!owner.email}><Trash2 size={14} /> Hapus</button>
             </div>
           </header>
           <div className="owner-stores">
@@ -1243,6 +1267,10 @@ function App() {
                 <span className="owner-store-count">{st.employees.length} karyawan</span>
                 <ChevronDown size={15} className="owner-store-chevron" />
               </summary>
+              <div className="owner-store-actions">
+                <button className="button button-secondary button-sm" disabled={adminBusyStoreId === st.id} onClick={() => setAdminStoreStatus(st)}>{adminBusyStoreId === st.id ? <span className="spinner" /> : st.status === 'suspended' ? <><UserCheck size={14} /> Aktifkan toko</> : <><Ban size={14} /> Tangguhkan toko</>}</button>
+                <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'store', id: st.id, label: st.name, expected: st.name, warning: `Toko "${st.name}" akan dihapus permanen beserta seluruh produk, stok, riwayat transaksi, dan ${st.employees.length} akun karyawan. Tindakan ini tidak dapat dibatalkan.` })}><Trash2 size={14} /> Hapus toko</button>
+              </div>
               <div className="staff-list">
                 {st.employees.length === 0 && <small className="owner-no-store">Belum ada akun karyawan.</small>}
                 {st.employees.map(emp => <div className="staff-row" key={emp.user_id}>
@@ -1255,6 +1283,7 @@ function App() {
                   <div className="staff-actions">
                     <button className="icon-button" title="Reset kata sandi" aria-label={`Reset kata sandi ${emp.name}`} onClick={() => openAdminReset({ user_id: emp.user_id, label: emp.name, sub: emp.username ? `@${emp.username} · ${st.name}` : st.name, kind: 'employee' })}><KeyRound size={15} /></button>
                     <button className="icon-button" title={emp.suspended ? 'Aktifkan akun' : 'Tangguhkan akun'} aria-label={emp.suspended ? `Aktifkan ${emp.name}` : `Tangguhkan ${emp.name}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: emp.user_id, label: emp.name, suspended: emp.suspended, kind: 'employee' } })}>{emp.suspended ? <UserCheck size={15} /> : <Ban size={15} />}</button>
+                    <button className="icon-button danger-icon" title="Hapus akun" aria-label={`Hapus akun ${emp.name}`} onClick={() => openAdminDelete({ kind: 'employee', id: emp.user_id, label: emp.name, expected: emp.username || emp.name, warning: `Akun karyawan ${emp.name}${emp.username ? ` (@${emp.username})` : ''} akan dihapus permanen dan tidak bisa login lagi. Riwayat transaksi toko tetap tersimpan.` })}><Trash2 size={15} /></button>
                   </div>
                 </div>)}
               </div>
@@ -1335,6 +1364,17 @@ function App() {
         <div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-primary" disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} Simpan kata sandi</button></div>
       </form>}
     </Modal>}
+    {modal?.type === 'admin-delete' && (() => {
+      const t = modal.target || {}
+      const typed = adminDeleteConfirm.trim()
+      const confirmOk = Boolean(t.expected) && (t.kind === 'store' ? typed === String(t.expected).trim() : typed.toLowerCase() === String(t.expected).trim().toLowerCase())
+      const kindLabel = t.kind === 'store' ? 'toko' : t.kind === 'owner' ? 'pemilik' : 'akun karyawan'
+      return <Modal title={`Hapus ${kindLabel} permanen?`} subtitle={t.label} onClose={() => setModal(null)} width="small"><form className="form-stack" onSubmit={submitAdminDelete}>
+        <div className="admin-danger-box"><AlertTriangle size={17} /><p>{t.warning}</p></div>
+        <label>Ketik <strong className="admin-confirm-text">{t.expected}</strong> untuk mengonfirmasi<input value={adminDeleteConfirm} onChange={e => setAdminDeleteConfirm(e.target.value)} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={t.expected} /></label>
+        <div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="submit" className="button button-danger" disabled={!confirmOk || savingForm}>{savingForm ? <span className="spinner" /> : <Trash2 size={16} />} Hapus permanen</button></div>
+      </form></Modal>
+    })()}
     {modal?.type === 'admin-suspend' && <Modal title={modal.target?.suspended ? 'Aktifkan kembali akun?' : 'Tangguhkan akun?'} subtitle={modal.target?.label} onClose={() => setModal(null)} width="small"><div className="form-stack">
       <div className="role-info-box"><ShieldCheck size={17} /><p>{modal.target?.suspended ? 'Pengguna dapat login kembali.' : `Pengguna tidak dapat login sampai diaktifkan kembali.${modal.target?.kind === 'owner' && modal.target?.storeCount ? ' Toko miliknya tetap tercatat; gunakan tombol Tangguhkan di tab Toko untuk menutup akses karyawan.' : ''}`} Aksi ini dicatat di riwayat audit.</p></div>
       <div className="modal-form-actions"><button type="button" className="button button-secondary" onClick={() => setModal(null)}>Batal</button><button type="button" className="button button-primary" onClick={submitAdminSuspend} disabled={savingForm}>{savingForm ? <span className="spinner" /> : <Check size={16} />} {modal.target?.suspended ? 'Aktifkan' : 'Tangguhkan'}</button></div>
