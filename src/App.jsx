@@ -1113,9 +1113,6 @@ function App() {
     </div>
   }
 
-    </div>
-  }
-
   const renderInventory = () => <>
     <PageTitle eyebrow="MANAJEMEN BARANG" title="Inventaris" description="Pantau stok, harga jual, dan kode barcode barang." actions={<><button className="button button-secondary" onClick={() => showScanner('inventory')}><ScanLine size={17} /> Scan barcode</button><button className="button button-primary" onClick={openAddProduct}><Plus size={17} /> Tambah barang</button></>} />
     <div className="inventory-stat-row"><div className="inventory-stat"><span className="inventory-stat-icon green"><Boxes size={19} /></span><div><small>Total jenis barang</small><strong>{products.length}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon blue"><Package size={19} /></span><div><small>Total unit stok</small><strong>{products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon amber"><AlertTriangle size={19} /></span><div><small>Stok menipis</small><strong>{lowStockProducts.length}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon purple"><CircleDollarSign size={19} /></span><div><small>Nilai stok (harga modal)</small><strong>{idr(products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0))}</strong></div></div></div>
