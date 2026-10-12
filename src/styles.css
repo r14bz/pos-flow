@@ -1087,9 +1087,19 @@ input, select, textarea { color: var(--ink); }
 .cashier-scan-icon { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 20px; color: var(--accent); background: var(--accent-pale); margin-bottom: 18px; }
 .cashier-scan-box h2 { margin: 0 0 8px; }
 .cashier-scan-box > p { max-width: 520px; margin: 0 0 22px; color: var(--muted); }
-.cashier-barcode-form { width: min(620px, 100%); }
+.cashier-barcode-form { position: relative; width: min(620px, 100%); }
 .cashier-barcode-input { min-height: 48px; }
 .cashier-barcode-input input { flex: 1; border: 0; outline: 0; background: transparent; min-width: 0; font: inherit; color: var(--text); }
+.cashier-product-suggestions { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 7px); display: flex; flex-direction: column; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 36px rgba(9,42,28,.13); text-align: left; }
+.cashier-product-suggestion { display: grid; grid-template-columns: 42px minmax(0,1fr) auto 18px; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); text-align: left; }
+.cashier-product-suggestion:hover, .cashier-product-suggestion:focus-visible { background: var(--surface-2); outline: none; }
+.cashier-product-suggestion .product-visual { width: 42px; height: 42px; border-radius: 9px; }
+.cashier-product-suggestion-main, .cashier-product-suggestion-stock { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.cashier-product-suggestion-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.cashier-product-suggestion-main small, .cashier-product-suggestion-stock small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.cashier-product-suggestion-stock { align-items: flex-end; }
+.cashier-product-suggestion-stock strong { font-size: 10px; }
+.cashier-product-suggestion > svg { color: var(--muted-2); }
 .cashier-camera-button { margin-top: 10px; }
 .cashier-scan-note { display: flex; align-items: center; gap: 7px; max-width: 620px; margin-top: 24px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 @media (max-width: 900px) { .cashier-scan-layout { grid-template-columns: 1fr; } .cashier-scan-box { min-height: 300px; padding: 30px 18px; } }
