@@ -71,7 +71,8 @@ function IconButton({ icon: Icon, label, onClick, className = '', badge = false,
 
 function Logo({ small = false, light = false }) {
   return <div className={`brand-lockup ${small ? 'brand-small' : ''} ${light ? 'brand-light' : ''}`}>
-    <img className="brand-logo" src="/brand/semar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="519" decoding="async" />
+    <img className="brand-logo brand-logo-light" src="/brand/semar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="519" decoding="async" />
+    <img className="brand-logo brand-logo-dark" src="/brand/semar-logo-dark.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="522" decoding="async" loading="lazy" />
   </div>
 }
 

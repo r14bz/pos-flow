@@ -1071,3 +1071,10 @@ input, select, textarea { color: var(--ink); }
 .loading-brand .brand-logo { height: 110px; }
 .onboarding-card .brand-logo { width: 100%; height: auto; }
 @media (max-width: 720px) { .sidebar-brand-row .brand-logo { height: 68px; } .auth-form-logo { margin-top: 0; } }
+
+/* Dark-mode logo variant: white banner with green artwork, no extra card needed */
+.brand-lockup .brand-logo-dark { display: none; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-light { display: none; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-dark { display: block; background: transparent; border-radius: 0; }
+:root[data-theme='dark'] .auth-form-logo .brand-logo-dark { width: 100%; height: auto; }
+:root[data-theme='dark'] .onboarding-card .brand-logo-dark { width: 100%; height: auto; }
