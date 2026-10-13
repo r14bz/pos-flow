@@ -12,6 +12,10 @@ on:
       - "android-native/**"
       - ".github/workflows/native-android.yml"
 
+concurrency:
+  group: native-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
