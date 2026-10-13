@@ -840,8 +840,7 @@ function App() {
       } else {
         const { data: insertedProduct, error } = await supabase.from('products').insert(draft).select().single()
         if (error) throw error
-        await loadStoreData(storeId)
-        if (Number(insertedProduct.stock) <= Number(insertedProduct.min_stock ?? 5)) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: insertedProduct.id } }).catch(() => {})
+        // Do not block the save modal on a full store-data refresh. The realtime products channel will refresh the list; update local state immediately from the inserted row.\n        setProducts(current => [normaliseProduct(insertedProduct), ...current.filter(p => p.id !== insertedProduct.id)])\n        if (Number(insertedProduct.stock) <= Number(insertedProduct.min_stock ?? 5)) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: insertedProduct.id } }).catch(() => {})
       }
       setModal(null); showToast('Barang berhasil ditambahkan.')
     } catch (err) { showToast(err?.message || 'Gagal menyimpan barang.', 'error') }
