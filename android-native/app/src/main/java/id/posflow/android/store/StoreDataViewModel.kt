@@ -75,6 +75,71 @@ class StoreDataViewModel : ViewModel() {
         }
     }
 
+
+    fun saveProduct(
+        storeId: String,
+        productId: String?,
+        name: String,
+        sku: String,
+        barcode: String,
+        category: String,
+        unit: String,
+        price: Double,
+        cost: Double,
+        minStock: Int
+    ) {
+        if (name.isBlank() || price < 0 || cost < 0 || minStock < 0) {
+            _state.update { it.copy(error = "Nama, harga, modal, dan batas stok harus valid.") }
+            return
+        }
+        if (_state.value.loading) return
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null, notice = null) }
+            try {
+                val payload = buildJsonObject {
+                    if (!productId.isNullOrBlank()) put("id", productId)
+                    put("store_id", storeId)
+                    put("name", name.trim())
+                    put("sku", sku.trim())
+                    put("barcode", barcode.trim().ifBlank { null as String? })
+                    put("category", category.trim().ifBlank { "Lainnya" })
+                    put("unit", unit.trim().ifBlank { "pcs" })
+                    put("price", price)
+                    put("cost", cost)
+                    put("min_stock", minStock)
+                }
+                SupabaseClientProvider.client.from("products").upsert(payload) {
+                    defaultToNull = false
+                }
+                loadedStoreId = null
+                _state.update { it.copy(loading = false, notice = "Data barang berhasil disimpan.", error = null) }
+                loadProducts(storeId, force = true)
+            } catch (error: Exception) {
+                _state.update { it.copy(loading = false, error = error.message?.take(240) ?: "Data barang gagal disimpan.") }
+            }
+        }
+    }
+
+    fun deleteProduct(storeId: String, productId: String) {
+        if (_state.value.loading) return
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null, notice = null) }
+            try {
+                SupabaseClientProvider.client.from("products").delete {
+                    filter {
+                        eq("id", productId)
+                        eq("store_id", storeId)
+                    }
+                }
+                loadedStoreId = null
+                _state.update { it.copy(loading = false, notice = "Barang berhasil dihapus.", error = null) }
+                loadProducts(storeId, force = true)
+            } catch (error: Exception) {
+                _state.update { it.copy(loading = false, error = error.message?.take(240) ?: "Barang gagal dihapus. Barang yang sudah dipakai dalam transaksi mungkin tidak dapat dihapus.") }
+            }
+        }
+    }
+
     fun clearNotice() {
         _state.update { it.copy(notice = null) }
     }
