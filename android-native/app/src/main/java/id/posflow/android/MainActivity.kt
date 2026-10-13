@@ -46,6 +46,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import id.posflow.android.admin.AdminViewModel
+import id.posflow.android.admin.AdminState
+import id.posflow.android.admin.AdminStore
 import id.posflow.android.auth.AuthViewModel
 import id.posflow.android.auth.NativeAppState
 import id.posflow.android.auth.StoreChoice
@@ -82,9 +85,116 @@ private fun PosFlowNativeApp(viewModel: AuthViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     when {
         state.email == null -> LoginScreen(state, viewModel)
+        state.isSuperAdmin -> AdminHomeScreen(viewModel = viewModel)
         state.selectedStore != null -> StoreDashboard(state, viewModel)
         state.stores.isNotEmpty() -> StorePickerScreen(state, viewModel)
         else -> NoStoreScreen(state, viewModel)
+    }
+}
+
+@Composable
+private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewModel = viewModel()) {
+    val state by adminViewModel.state.collectAsState()
+    var password by rememberSaveable { mutableStateOf("") }
+    var passwordTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteStoreTarget by rememberSaveable { mutableStateOf<AdminStore?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { adminViewModel.loadDirectory() }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text("Administrator pusat", style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = { adminViewModel.loadDirectory() }, enabled = !state.loading) { Text("Muat ulang") }
+        }
+        Text("Akun dan toko terdaftar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        state.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (state.loading) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator()
+            Text("Memuat direktori administrator…")
+        }
+        val owners = state.directory?.owners.orEmpty()
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            SummaryCard("Akun", owners.size.toString(), Modifier.weight(1f))
+            SummaryCard("Toko", owners.sumOf { it.stores.size }.toString(), Modifier.weight(1f))
+        }
+        owners.forEach { account ->
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(account.fullName.ifBlank { account.email.ifBlank { account.userId } }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(account.email.ifBlank { "Email tidak tersedia" }, style = MaterialTheme.typography.bodyMedium)
+                    Text(if (account.isSuperAdmin) "Administrator pusat" else if (account.suspended) "Akun ditangguhkan" else "Akun aktif")
+                    if (!account.isSuperAdmin) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { passwordTarget = account.userId }, modifier = Modifier.weight(1f), enabled = !state.loading) { Text("Reset sandi") }
+                            OutlinedButton(onClick = { adminViewModel.setSuspended(account.userId, !account.suspended) }, modifier = Modifier.weight(1f), enabled = !state.loading) {
+                                Text(if (account.suspended) "Aktifkan" else "Tangguhkan")
+                            }
+                        }
+                    }
+                    account.stores.forEach { store ->
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(store.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text("Kode: ${store.storeCode} · ${store.city}", style = MaterialTheme.typography.bodySmall)
+                                Text("Status: ${store.status} · Karyawan: ${store.employees.size}", style = MaterialTheme.typography.bodySmall)
+                                store.employees.forEach { employee ->
+                                    Text("• ${employee.name} (${employee.username ?: employee.email}) — ${employee.roles.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
+                                }
+                                OutlinedButton(onClick = { deleteStoreTarget = store }, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Hapus toko beserta data")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        OutlinedButton(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) { Text("Keluar dari akun administrator") }
+    }
+
+    passwordTarget?.let { target ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { passwordTarget = null; password = "" },
+            title = { Text("Reset kata sandi akun") },
+            text = {
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Kata sandi baru (minimal 8 karakter)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    adminViewModel.resetPassword(target, password)
+                    passwordTarget = null
+                    password = ""
+                }, enabled = password.length >= 8 && !state.loading) { Text("Simpan") }
+            },
+            dismissButton = { TextButton(onClick = { passwordTarget = null; password = "" }) { Text("Batal") } }
+        )
+    }
+    deleteStoreTarget?.let { store ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteStoreTarget = null },
+            title = { Text("Hapus toko?") },
+            text = { Text("Toko “${store.name}” dan data transaksinya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    adminViewModel.deleteStore(store.id, store.name)
+                    deleteStoreTarget = null
+                }, enabled = !state.loading) { Text("Hapus permanen") }
+            },
+            dismissButton = { TextButton(onClick = { deleteStoreTarget = null }) { Text("Batal") } }
+        )
     }
 }
 
