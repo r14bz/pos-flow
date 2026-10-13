@@ -18,6 +18,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
 @Serializable
+data class NativeProfileRow(
+    val id: String = "",
+    @SerialName("is_super_admin") val isSuperAdmin: Boolean = false
+)
+
+@Serializable
 data class StoreMembershipRow(
     @SerialName("store_id") val storeId: String = "",
     @SerialName("user_id") val userId: String = "",
@@ -55,6 +61,7 @@ data class NativeAppState(
     val email: String? = null,
     val stores: List<StoreChoice> = emptyList(),
     val selectedStore: StoreChoice? = null,
+    val isSuperAdmin: Boolean = false,
     val error: String? = null,
     val notice: String? = null
 )
@@ -134,6 +141,9 @@ class AuthViewModel : ViewModel() {
     private suspend fun loadStores(userId: String) {
         try {
             val client = SupabaseClientProvider.client
+            val profile = client.from("profiles").select {
+                filter { eq("id", userId) }
+            }.decodeList<NativeProfileRow>().firstOrNull()
             val memberships = client.from("store_memberships").select {
                 filter { eq("user_id", userId) }
             }.decodeList<StoreMembershipRow>()
@@ -166,6 +176,7 @@ class AuthViewModel : ViewModel() {
                     loading = false,
                     stores = choices,
                     selectedStore = if (choices.size == 1) choices.first() else null,
+                    isSuperAdmin = profile?.isSuperAdmin == true,
                     error = null,
                     notice = if (choices.isEmpty())
                         "Akun berhasil masuk, tetapi belum memiliki akses ke toko aktif."
@@ -197,6 +208,7 @@ class AuthViewModel : ViewModel() {
                         email = null,
                         stores = emptyList(),
                         selectedStore = null,
+                        isSuperAdmin = false,
                         error = null
                     )
                 }
