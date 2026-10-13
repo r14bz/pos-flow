@@ -770,19 +770,33 @@ private fun EmployeeScreen(storeId: String, state: EmployeeState, viewModel: Emp
 
 @Composable
 private fun ReportScreen(storeId: String, state: ReportState, viewModel: ReportViewModel) {
+    var startDate by rememberSaveable(storeId) { mutableStateOf("") }
+    var endDate by rememberSaveable(storeId) { mutableStateOf("") }
+    val filteredSales = state.sales.filter { sale ->
+        val date = sale.createdAt.take(10)
+        (startDate.isBlank() || (startDate.length == 10 && date >= startDate)) &&
+            (endDate.isBlank() || (endDate.length == 10 && date <= endDate))
+    }
+    val filteredRevenue = filteredSales.filter { it.status == "paid" }.sumOf { it.total }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text("Laporan penjualan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         TextButton(onClick = { viewModel.load(storeId, force = true) }, enabled = !state.loading) { Text("Muat ulang") }
     }
+    Text("Filter periode (format YYYY-MM-DD)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(value = startDate, onValueChange = { startDate = it.take(10).filter { ch -> ch.isDigit() || ch == '-' } }, label = { Text("Dari tanggal") }, modifier = Modifier.weight(1f), singleLine = true)
+        OutlinedTextField(value = endDate, onValueChange = { endDate = it.take(10).filter { ch -> ch.isDigit() || ch == '-' } }, label = { Text("Sampai tanggal") }, modifier = Modifier.weight(1f), singleLine = true)
+    }
+    TextButton(onClick = { startDate = ""; endDate = "" }, modifier = Modifier.align(Alignment.End)) { Text("Hapus filter") }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        SummaryCard("Transaksi", state.sales.size.toString(), Modifier.weight(1f))
-        SummaryCard("Menunggu", state.pendingCount.toString(), Modifier.weight(1f))
-        SummaryCard("Batal", state.cancelledCount.toString(), Modifier.weight(1f))
+        SummaryCard("Transaksi", filteredSales.size.toString(), Modifier.weight(1f))
+        SummaryCard("Menunggu", filteredSales.count { it.status == "pending" }.toString(), Modifier.weight(1f))
+        SummaryCard("Batal", filteredSales.count { it.status == "cancelled" }.toString(), Modifier.weight(1f))
     }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Total penjualan lunas", style = MaterialTheme.typography.titleMedium)
-            Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.revenue)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(filteredRevenue)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text("Dihitung dari transaksi berstatus lunas yang dapat diakses akun ini.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -793,10 +807,10 @@ private fun ReportScreen(storeId: String, state: ReportState, viewModel: ReportV
         }
     }
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-    if (!state.loading && state.sales.isEmpty() && state.error == null) {
-        Text("Belum ada transaksi pada toko ini.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (!state.loading && filteredSales.isEmpty() && state.error == null) {
+        Text(if (state.sales.isEmpty()) "Belum ada transaksi pada toko ini." else "Tidak ada transaksi pada periode yang dipilih.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    state.sales.take(100).forEach { sale ->
+    filteredSales.take(100).forEach { sale ->
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(sale.receiptNo.ifBlank { sale.id }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
