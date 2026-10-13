@@ -357,13 +357,15 @@ private fun StorePickerScreen(state: NativeAppState, viewModel: AuthViewModel) {
     Column(
         modifier = Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center
     ) {
+        Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(8.dp))
         Text("Pilih toko", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Masuk sebagai ${state.email.orEmpty()}. Data toko akan tetap dipisahkan berdasarkan akses akun.",
+            "Masuk sebagai ${state.email.orEmpty()}. Pilih toko untuk melanjutkan. Data setiap toko tetap terpisah sesuai akses akun.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -389,14 +391,16 @@ private fun StorePickerScreen(state: NativeAppState, viewModel: AuthViewModel) {
 private fun StoreCard(store: StoreChoice, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(store.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("Kode toko: ${store.code}", style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(store.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Kode toko: ${store.code}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Peran: ${store.allRoles.joinToString(", ") { roleLabel(it) }}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text("Ketuk untuk membuka toko", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text("Buka toko  →", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
