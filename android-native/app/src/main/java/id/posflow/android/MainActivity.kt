@@ -517,6 +517,31 @@ private fun StoreDashboard(
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
+    if (showProductEditor) {
+        ProductEditorDialog(
+            product = editingProduct,
+            onDismiss = { showProductEditor = false; editingProduct = null },
+            onSave = { productId, name, sku, barcode, category, unit, price, cost, minStock ->
+                storeDataViewModel.saveProduct(store.id, productId, name, sku, barcode, category, unit, price, cost, minStock)
+                showProductEditor = false
+                editingProduct = null
+            }
+        )
+    }
+    deleteProductTarget?.let { product ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteProductTarget = null },
+            title = { Text("Hapus barang?") },
+            text = { Text("Barang “${product.name}” akan dihapus. Barang yang sudah terkait transaksi mungkin ditolak oleh database.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    storeDataViewModel.deleteProduct(store.id, product.id)
+                    deleteProductTarget = null
+                }, enabled = !data.loading) { Text("Hapus") }
+            },
+            dismissButton = { TextButton(onClick = { deleteProductTarget = null }) { Text("Batal") } }
+        )
+    }
 }
 
 @Composable
@@ -811,6 +836,56 @@ private fun CashierScreen(
     if (!canCheckout) {
         Text("Akun dengan peran ini hanya dapat melihat stok; akses kasir tidak tersedia.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun ProductEditorDialog(
+    product: NativeProduct?,
+    onDismiss: () -> Unit,
+    onSave: (String?, String, String, String, String, String, Double, Double, Int) -> Unit
+) {
+    var name by rememberSaveable(product?.id) { mutableStateOf(product?.name.orEmpty()) }
+    var sku by rememberSaveable(product?.id) { mutableStateOf(product?.sku.orEmpty()) }
+    var barcode by rememberSaveable(product?.id) { mutableStateOf(product?.barcode.orEmpty()) }
+    var category by rememberSaveable(product?.id) { mutableStateOf(product?.category ?: "Lainnya") }
+    var unit by rememberSaveable(product?.id) { mutableStateOf(product?.unit ?: "pcs") }
+    var price by rememberSaveable(product?.id) { mutableStateOf(product?.price?.toString() ?: "") }
+    var cost by rememberSaveable(product?.id) { mutableStateOf(product?.cost?.toString() ?: "0") }
+    var minStock by rememberSaveable(product?.id) { mutableStateOf(product?.minStock?.toString() ?: "5") }
+    val priceValue = price.replace(",", ".").toDoubleOrNull()
+    val costValue = cost.replace(",", ".").toDoubleOrNull()
+    val minStockValue = minStock.toIntOrNull()
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (product == null) "Tambah barang" else "Edit barang") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama barang") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = sku, onValueChange = { sku = it }, label = { Text("SKU") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Satuan") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = price, onValueChange = { price = it.filter { c -> c.isDigit() || c == '.' || c == ',' } }, label = { Text("Harga jual") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = cost, onValueChange = { cost = it.filter { c -> c.isDigit() || c == '.' || c == ',' } }, label = { Text("Harga modal") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = minStock, onValueChange = { minStock = it.filter(Char::isDigit) }, label = { Text("Batas stok menipis") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                if (product == null) Text("Barang baru dibuat dengan stok 0. Gunakan tombol penyesuaian stok untuk menambah stok awal.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(product?.id, name, sku, barcode, category, unit, priceValue ?: 0.0, costValue ?: 0.0, minStockValue ?: 0)
+                },
+                enabled = name.isNotBlank() && priceValue != null && priceValue >= 0 &&
+                    costValue != null && costValue >= 0 && minStockValue != null && minStockValue >= 0
+            ) { Text("Simpan") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }
 
 @Composable
