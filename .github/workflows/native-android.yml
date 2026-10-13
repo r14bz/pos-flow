@@ -41,3 +41,14 @@ jobs:
 
       - name: Assemble debug APK
         run: gradle --no-daemon -p android-native :app:assembleDebug
+        env:
+          SUPABASE_URL: https://vegbcxmkpffwfxksdznu.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_kO93v3PWEgsEI9loYuyfGw_nqApuGbq
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-flow-native-debug-apk
+          path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
