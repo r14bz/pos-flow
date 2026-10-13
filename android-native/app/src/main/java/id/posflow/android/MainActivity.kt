@@ -412,6 +412,8 @@ private fun StoreDashboard(
     val canManageEmployees = store.allRoles.contains("owner")
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     var showProductEditor by rememberSaveable { mutableStateOf(false) }
+    var inventoryQuery by rememberSaveable(store.id) { mutableStateOf("") }
+    var inventoryFilter by rememberSaveable(store.id) { mutableStateOf("Semua") }
     var editingProduct by remember { mutableStateOf<NativeProduct?>(null) }
     var deleteProductTarget by remember { mutableStateOf<NativeProduct?>(null) }
     androidx.compose.runtime.LaunchedEffect(store.id) {
@@ -497,6 +499,46 @@ private fun StoreDashboard(
                 Text("Inventaris", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("${data.products.size} barang", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            OutlinedTextField(
+                value = inventoryQuery,
+                onValueChange = { inventoryQuery = it },
+                label = { Text("Cari nama, SKU, atau barcode") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Semua", "Stok menipis", "Stok habis").forEach { filter ->
+                    if (inventoryFilter == filter) {
+                        Button(onClick = { inventoryFilter = filter }, modifier = Modifier.weight(1f)) {
+                            Text(filter, maxLines = 1)
+                        }
+                    } else {
+                        OutlinedButton(onClick = { inventoryFilter = filter }, modifier = Modifier.weight(1f)) {
+                            Text(filter, maxLines = 1)
+                        }
+                    }
+                }
+            }
+            val visibleProducts = data.products.filter { product ->
+                val matchesQuery = inventoryQuery.isBlank() ||
+                    product.name.contains(inventoryQuery, ignoreCase = true) ||
+                    product.sku.contains(inventoryQuery, ignoreCase = true) ||
+                    product.barcode.orEmpty().contains(inventoryQuery, ignoreCase = true)
+                val matchesFilter = when (inventoryFilter) {
+                    "Stok menipis" -> product.stock > 0 && product.stock <= product.minStock
+                    "Stok habis" -> product.stock <= 0
+                    else -> true
+                }
+                matchesQuery && matchesFilter
+            }
+            Text(
+                "${visibleProducts.size} barang ditampilkan",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             if (store.allRoles.any { it in setOf("owner", "manager", "inventory") }) {
                 Button(onClick = { editingProduct = null; showProductEditor = true }, modifier = Modifier.fillMaxWidth()) {
                     Text("Tambah barang")
@@ -519,7 +561,7 @@ private fun StoreDashboard(
             data.notice?.let {
                 Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             }
-            data.products.forEach { product ->
+            visibleProducts.forEach { product ->
                 ProductCard(
                     product = product,
                     canAdjustStock = store.allRoles.any { it in setOf("owner", "manager", "inventory") },
