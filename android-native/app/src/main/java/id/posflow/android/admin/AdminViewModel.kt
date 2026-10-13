@@ -68,6 +68,9 @@ class AdminViewModel : ViewModel() {
     private val _state = MutableStateFlow(AdminState())
     val state = _state.asStateFlow()
 
+    // The Edge Function can add fields without requiring an Android release.
+    private val directoryJson = Json { ignoreUnknownKeys = true }
+
     fun loadDirectory() {
         if (_state.value.loading) return
         viewModelScope.launch {
@@ -77,7 +80,7 @@ class AdminViewModel : ViewModel() {
                     "admin-accounts",
                     buildJsonObject { put("action", "directory") }
                 )
-                val directory = Json.decodeFromString<AdminDirectory>(response.bodyAsText())
+                val directory = directoryJson.decodeFromString<AdminDirectory>(response.bodyAsText())
                 _state.update { it.copy(loading = false, directory = directory, error = null) }
             } catch (error: Exception) {
                 _state.update { it.copy(loading = false, error = error.message?.take(240) ?: "Direktori admin gagal dimuat.") }
