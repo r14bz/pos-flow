@@ -190,6 +190,10 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun showStorePicker() {
+        _state.update { it.copy(selectedStore = null, error = null, notice = null) }
+    }
+
     fun selectStore(store: StoreChoice) {
         if (_state.value.stores.any { it.id == store.id }) {
             _state.update { it.copy(selectedStore = store, error = null, notice = null) }
