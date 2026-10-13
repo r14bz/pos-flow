@@ -383,20 +383,20 @@ private fun CashierScreen(
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Stok \${product.stock} · Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
+                    Text("Stok ${product.stock} · Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
                 }
                 Button(onClick = { viewModel.add(product) }, enabled = canCheckout && !state.loading) { Text("Tambah") }
             }
         }
     }
-    Text("Keranjang (\${state.cartCount})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Keranjang (${state.cartCount})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     state.quantities.forEach { (productId, qty) ->
         val product = state.products.firstOrNull { it.id == productId }
         if (product != null) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(product.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Text("\${qty} × Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
+                    Text("${qty} × Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { viewModel.decrement(product) }, enabled = !state.loading) { Text("−") }
@@ -414,8 +414,8 @@ private fun CashierScreen(
         singleLine = true,
         enabled = canCheckout && !state.loading
     )
-    Text("Subtotal: Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.subtotal)}")
-    Text("Total: Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.total)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Subtotal: Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.subtotal)}")
+    Text("Total: Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.total)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text("Metode pembayaran", style = MaterialTheme.typography.titleMedium)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.paymentMethod == "cash") {
@@ -523,11 +523,11 @@ private fun ProductCard(
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("SKU: \${product.sku.ifBlank { "—" }} · \${product.category}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("SKU: ${product.sku.ifBlank { "—" }} · ${product.category}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodyMedium)
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("\${product.stock} \${product.unit}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("${product.stock} ${product.unit}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     if (product.stock <= product.minStock) {
                         Text("Stok menipis", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                     } else {
