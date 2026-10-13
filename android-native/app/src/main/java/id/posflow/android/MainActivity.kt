@@ -97,7 +97,7 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
     val state by adminViewModel.state.collectAsState()
     var password by rememberSaveable { mutableStateOf("") }
     var passwordTarget by rememberSaveable { mutableStateOf<String?>(null) }
-    var deleteStoreTarget by rememberSaveable { mutableStateOf<AdminStore?>(null) }
+    var deleteStoreTarget by remember { mutableStateOf<AdminStore?>(null) }
     androidx.compose.runtime.LaunchedEffect(Unit) { adminViewModel.loadDirectory() }
 
     Column(
@@ -698,7 +698,7 @@ private fun CashierScreen(
         onClick = { viewModel.checkout(storeId) },
         modifier = Modifier.fillMaxWidth(),
         enabled = canCheckout && !state.loading && state.cartCount > 0 &&
-            !(qrisState.saleId != null && qrisState.status == "pending")
+            qrisState.saleId == null
     ) {
         if (state.loading) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
         else Text("Selesaikan transaksi")
@@ -743,7 +743,7 @@ private fun CashierScreen(
                     AsyncImage(model = qrisState.qrUrl, contentDescription = "Kode QRIS statis", modifier = Modifier.fillMaxWidth().height(240.dp))
                 }
                 Text("Status: ${qrisState.status ?: "menunggu pembayaran"}")
-                OutlinedButton(onClick = { qrisViewModel.refreshStatus() }, enabled = !qrisState.loading, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { qrisViewModel.refreshStatus(storeId) }, enabled = !qrisState.loading, modifier = Modifier.fillMaxWidth()) {
                     Text("Periksa status pembayaran")
                 }
                 if (qrisState.mode == "static" && qrisState.status == "pending") {
