@@ -398,6 +398,9 @@ private fun StoreDashboard(
     val employees by employeeViewModel.state.collectAsState()
     val canManageEmployees = store.allRoles.contains("owner")
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
+    var showProductEditor by rememberSaveable { mutableStateOf(false) }
+    var editingProduct by remember { mutableStateOf<NativeProduct?>(null) }
+    var deleteProductTarget by remember { mutableStateOf<NativeProduct?>(null) }
     androidx.compose.runtime.LaunchedEffect(store.id) {
         storeDataViewModel.loadProducts(store.id)
         checkoutViewModel.load(store.id)
@@ -472,6 +475,11 @@ private fun StoreDashboard(
                 Text("Inventaris", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("${data.products.size} barang", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (store.allRoles.any { it in setOf("owner", "manager", "inventory") }) {
+                Button(onClick = { editingProduct = null; showProductEditor = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Tambah barang")
+                }
+            }
             if (data.loading) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CircularProgressIndicator()
@@ -493,6 +501,10 @@ private fun StoreDashboard(
                 ProductCard(
                     product = product,
                     canAdjustStock = store.allRoles.any { it in setOf("owner", "manager", "inventory") },
+                    canEdit = store.allRoles.any { it in setOf("owner", "manager", "inventory") },
+                    canDelete = store.allRoles.any { it in setOf("owner", "manager") },
+                    onEdit = { editingProduct = product; showProductEditor = true },
+                    onDelete = { deleteProductTarget = product },
                     onAdjustStock = { delta ->
                         storeDataViewModel.adjustStock(store.id, product.id, delta, "Penyesuaian dari aplikasi Android")
                     }
@@ -805,6 +817,10 @@ private fun CashierScreen(
 private fun ProductCard(
     product: NativeProduct,
     canAdjustStock: Boolean,
+    canEdit: Boolean,
+    canDelete: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onAdjustStock: (Int) -> Unit
 ) {
     Card(
@@ -822,6 +838,7 @@ private fun ProductCard(
                     Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("SKU: ${product.sku.ifBlank { "—" }} · ${product.category}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodyMedium)
+                    if (!product.barcode.isNullOrBlank()) Text("Barcode: ${product.barcode}", style = MaterialTheme.typography.labelSmall)
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${product.stock} ${product.unit}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -841,7 +858,12 @@ private fun ProductCard(
                         Text("+ 1 stok")
                     }
                 }
-                Text("Penyesuaian cepat mencatat perubahan pada buku mutasi stok.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (canEdit || canDelete) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (canEdit) OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) { Text("Edit") }
+                    if (canDelete) OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text("Hapus") }
+                }
             }
         }
     }
