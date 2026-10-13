@@ -1,0 +1,43 @@
+name: Native Android build
+
+on:
+  pull_request:
+    paths:
+      - "android-native/**"
+      - ".github/workflows/native-android.yml"
+  push:
+    branches:
+      - feature/native-android-foundation
+    paths:
+      - "android-native/**"
+      - ".github/workflows/native-android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon -p android-native :app:assembleDebug
