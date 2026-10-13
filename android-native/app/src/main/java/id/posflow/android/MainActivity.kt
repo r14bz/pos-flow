@@ -56,6 +56,8 @@ import id.posflow.android.store.QrisViewModel
 import id.posflow.android.store.QrisPaymentState
 import id.posflow.android.store.ReportViewModel
 import id.posflow.android.store.ReportState
+import id.posflow.android.store.EmployeeViewModel
+import id.posflow.android.store.EmployeeState
 import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
@@ -248,11 +250,15 @@ private fun StoreDashboard(
     val qris by qrisViewModel.state.collectAsState()
     val reportViewModel: ReportViewModel = viewModel()
     val report by reportViewModel.state.collectAsState()
+    val employeeViewModel: EmployeeViewModel = viewModel()
+    val employees by employeeViewModel.state.collectAsState()
+    val canManageEmployees = store.allRoles.contains("owner")
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     androidx.compose.runtime.LaunchedEffect(store.id) {
         storeDataViewModel.loadProducts(store.id)
         checkoutViewModel.load(store.id)
         reportViewModel.load(store.id)
+        if (canManageEmployees) employeeViewModel.load(store.id)
     }
 
     Column(
@@ -287,7 +293,7 @@ private fun StoreDashboard(
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Stok", "Kasir", "Laporan").forEach { tab ->
+            (if (canManageEmployees) listOf("Stok", "Kasir", "Laporan", "Karyawan") else listOf("Stok", "Kasir", "Laporan")).forEach { tab ->
                 if (page == tab) {
                     Button(onClick = { page = tab }, modifier = Modifier.weight(1f)) { Text(tab) }
                 } else {
@@ -306,6 +312,8 @@ private fun StoreDashboard(
             )
         } else if (page == "Laporan") {
             ReportScreen(storeId = store.id, state = report, viewModel = reportViewModel)
+        } else if (page == "Karyawan" && canManageEmployees) {
+            EmployeeScreen(storeId = store.id, state = employees, viewModel = employeeViewModel)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
@@ -362,6 +370,89 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun EmployeeScreen(storeId: String, state: EmployeeState, viewModel: EmployeeViewModel) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var rolesText by rememberSaveable { mutableStateOf("cashier") }
+    var deleteTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val roles = rolesText.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }.distinct()
+    val validRoles = setOf("manager", "cashier", "inventory", "viewer")
+    Text("Manajemen karyawan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Fitur ini hanya ditampilkan untuk pemilik toko. Server memvalidasi ulang semua tindakan.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Buat akun karyawan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(value = username, onValueChange = { username = it.lowercase().filter { c -> c.isLetterOrDigit() || c in "._-" } }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Kata sandi (minimal 8 karakter)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            OutlinedTextField(value = rolesText, onValueChange = { rolesText = it }, label = { Text("Peran dipisahkan koma") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Text("Peran yang tersedia: manager, cashier, inventory, viewer", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(
+                onClick = {
+                    viewModel.create(storeId, name, username, password, roles)
+                    if (name.isNotBlank() && username.isNotBlank() && password.length >= 8 && roles.isNotEmpty() && roles.all { it in validRoles }) {
+                        name = ""
+                        username = ""
+                        password = ""
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.loading && name.isNotBlank() && username.length >= 3 &&
+                    password.length >= 8 && roles.isNotEmpty() && roles.all { it in validRoles }
+            ) { Text("Buat akun") }
+        }
+    }
+    state.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("Akun karyawan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        TextButton(onClick = { viewModel.load(storeId) }, enabled = !state.loading) { Text("Muat ulang") }
+    }
+    if (state.loading) CircularProgressIndicator()
+    if (!state.loading && state.employees.isEmpty()) Text("Belum ada akun karyawan.")
+    state.employees.forEach { employee ->
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(employee.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Username: ${employee.username ?: "—"}")
+                Text("Peran utama: ${roleLabel(employee.role)} · Status: ${employee.status}")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { viewModel.resetPassword(storeId, employee.username.orEmpty(), password) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !state.loading && employee.username != null && password.length >= 8
+                    ) { Text("Reset sandi") }
+                    OutlinedButton(
+                        onClick = { viewModel.updateRoles(storeId, employee.username.orEmpty(), roles) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !state.loading && employee.username != null && roles.isNotEmpty() && roles.all { it in validRoles }
+                    ) { Text("Simpan peran") }
+                }
+                OutlinedButton(onClick = { deleteTarget = employee.username }, modifier = Modifier.fillMaxWidth(), enabled = !state.loading) {
+                    Text("Hapus akun")
+                }
+            }
+        }
+    }
+    deleteTarget?.let { target ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Hapus akun karyawan?") },
+            text = { Text("Akun $target akan dihapus dari toko. Jika akun tidak dipakai di toko lain, identitas login juga akan dihapus.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.delete(storeId, target)
+                    deleteTarget = null
+                }) { Text("Hapus") }
+            },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Batal") }
+            }
+        )
     }
 }
 
