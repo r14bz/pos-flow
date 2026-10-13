@@ -25,6 +25,13 @@ data class StoreMembershipRow(
 )
 
 @Serializable
+data class StoreMembershipRoleRow(
+    @SerialName("store_id") val storeId: String = "",
+    @SerialName("user_id") val userId: String = "",
+    val role: String = "viewer"
+)
+
+@Serializable
 data class StoreRow(
     val id: String = "",
     val name: String = "",
@@ -36,8 +43,11 @@ data class StoreChoice(
     val id: String,
     val name: String,
     val code: String,
-    val role: String
-)
+    val role: String,
+    val additionalRoles: Set<String> = emptySet()
+) {
+    val allRoles: Set<String> get() = setOf(role) + additionalRoles
+}
 
 data class NativeAppState(
     val configured: Boolean,
@@ -135,11 +145,18 @@ class AuthViewModel : ViewModel() {
                 if (store == null || store.status != "active") {
                     null
                 } else {
+                    val extraRoles = client.from("store_membership_roles").select {
+                        filter {
+                            eq("store_id", membership.storeId)
+                            eq("user_id", userId)
+                        }
+                    }.decodeList<StoreMembershipRoleRow>().map { it.role }.toSet()
                     StoreChoice(
                         id = store.id,
                         name = store.name,
                         code = store.storeCode,
-                        role = membership.role
+                        role = membership.role,
+                        additionalRoles = extraRoles
                     )
                 }
             }.distinctBy { it.id }
