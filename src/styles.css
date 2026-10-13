@@ -469,6 +469,9 @@ input, select, textarea { color: var(--ink); }
 .report-filter-label strong { font-size: 11px; }
 .report-filter-label small { font-size: 9px; color: var(--muted); }
 .report-filter-controls { display: flex; align-items: center; gap: 8px; }
+.report-scope-toggle { display: inline-flex; align-items: center; padding: 2px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-2); }
+.report-scope-toggle button { border: 0; background: transparent; color: var(--muted); min-height: 29px; padding: 0 10px; border-radius: 6px; font: 700 9px Manrope,sans-serif; cursor: pointer; }
+.report-scope-toggle button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
 .report-filter-controls input { height: 34px; max-width: 155px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: 10px; }
 .report-summary-cards { display: grid; grid-template-columns: 1.25fr repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .report-summary-card { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 9px; padding: 17px 17px 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
@@ -890,6 +893,8 @@ input, select, textarea { color: var(--ink); }
   .report-filter-bar { align-items: stretch; flex-direction: column; gap: 12px; padding: 12px; margin-bottom: 13px; }
   .report-filter-icon { width: 35px; height: 35px; }
   .report-filter-controls { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 6px; }
+   .report-scope-toggle { grid-column: 1 / -1; justify-content: stretch; }
+   .report-scope-toggle button { flex: 1; min-height: 31px; }
   .report-filter-controls input { width: 100%; max-width: none; min-width: 0; height: 33px; font-size: 9px; }
   .report-filter-controls .button { min-height: 33px; padding: 0 9px; font-size: 9px; }
   .report-summary-cards { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
