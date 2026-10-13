@@ -238,7 +238,8 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
 
 @Composable
 private fun LoginScreen(state: NativeAppState, viewModel: AuthViewModel) {
-    var email by rememberSaveable { mutableStateOf("") }
+    var identifier by rememberSaveable { mutableStateOf("") }
+    var storeCode by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
     Column(
@@ -277,13 +278,21 @@ private fun LoginScreen(state: NativeAppState, viewModel: AuthViewModel) {
                     fontWeight = FontWeight.SemiBold
                 )
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
+                    value = identifier,
+                    onValueChange = { identifier = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
+                    label = { Text("Email atau username karyawan") },
                     singleLine = true,
                     enabled = !state.loading,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                )
+                OutlinedTextField(
+                    value = storeCode,
+                    onValueChange = { storeCode = it.uppercase().filter { c -> c.isLetterOrDigit() || c == '-' } },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Kode toko (khusus username karyawan)") },
+                    singleLine = true,
+                    enabled = !state.loading
                 )
                 OutlinedTextField(
                     value = password,
@@ -296,10 +305,10 @@ private fun LoginScreen(state: NativeAppState, viewModel: AuthViewModel) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                 )
                 Button(
-                    onClick = { viewModel.signIn(email, password) },
+                    onClick = { viewModel.signIn(identifier, password, storeCode) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state.configured && !state.loading &&
-                        email.isNotBlank() && password.isNotBlank()
+                        identifier.isNotBlank() && password.isNotBlank() && (identifier.contains("@") || storeCode.isNotBlank())
                 ) {
                     if (state.loading) {
                         CircularProgressIndicator(
