@@ -90,7 +90,7 @@ private fun PosFlowNativeApp(viewModel: AuthViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     when {
         state.email == null -> LoginScreen(state, viewModel)
-        state.isSuperAdmin -> AdminHomeScreen(viewModel = viewModel)
+        state.isSuperAdmin && state.selectedStore == null -> AdminHomeScreen(viewModel = viewModel)
         state.selectedStore != null -> StoreDashboard(state, viewModel)
         state.stores.isNotEmpty() -> StorePickerScreen(state, viewModel)
         else -> NoStoreScreen(state, viewModel)
@@ -171,6 +171,11 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
                         }
                     }
                 }
+            }
+        }
+        if (viewModel.state.value.stores.isNotEmpty()) {
+            Button(onClick = { viewModel.showStorePicker() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Buka operasional toko")
             }
         }
         OutlinedButton(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) { Text("Keluar dari akun administrator") }
@@ -453,6 +458,13 @@ private fun StoreDashboard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { storeDataViewModel.loadProducts(store.id, force = true) }, enabled = !data.loading) {
                     Text("Muat ulang")
+                }
+                if (state.isSuperAdmin) {
+                    TextButton(onClick = {
+                        checkoutViewModel.clearCart()
+                        qrisViewModel.reset()
+                        viewModel.showStorePicker()
+                    }) { Text("Admin pusat") }
                 }
                 if (state.stores.size > 1) {
                     TextButton(onClick = {
