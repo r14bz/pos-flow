@@ -814,10 +814,13 @@ function App() {
   }
 
   const saveProduct = async (e) => {
-    e.preventDefault(); setSavingForm(true)
-    const draft = { name: productDraft.name.trim(), sku: productDraft.sku.trim(), barcode: productDraft.barcode.trim() || null, category: productDraft.category, image_url: productDraft.image_url.trim() || null, price: Number(productDraft.price), cost: Number(productDraft.cost || 0), stock: Number(productDraft.stock || 0), min_stock: Number(productDraft.min_stock || 0), unit: productDraft.unit || 'pcs', store_id: currentStore.id }
-    if (!draft.name || !(draft.price > 0) || draft.stock < 0) { showToast('Periksa nama, harga, dan jumlah stok.', 'error'); setSavingForm(false); return }
+    e.preventDefault()
+    setSavingForm(true)
     try {
+      const activeStoreId = currentStore?.id || storeId
+      if (!activeStoreId) throw new Error('Toko aktif belum siap. Silakan pilih toko lalu coba lagi.')
+      const draft = { name: productDraft.name.trim(), sku: productDraft.sku.trim(), barcode: productDraft.barcode.trim() || null, category: productDraft.category, image_url: productDraft.image_url.trim() || null, price: Number(productDraft.price), cost: Number(productDraft.cost || 0), stock: Number(productDraft.stock || 0), min_stock: Number(productDraft.min_stock || 0), unit: productDraft.unit || 'pcs', store_id: activeStoreId }
+      if (!draft.name || !(draft.price > 0) || draft.stock < 0) throw new Error('Periksa nama, harga, dan jumlah stok.')
       if (modal?.type === 'product-edit') {
         const { store_id, stock, ...editable } = draft
         const previousStock = Number(modal.product.stock || 0)
