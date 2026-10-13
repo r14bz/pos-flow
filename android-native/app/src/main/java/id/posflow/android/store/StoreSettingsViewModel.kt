@@ -105,7 +105,7 @@ class StoreSettingsViewModel : ViewModel() {
                     buildJsonObject {
                         put("store_id", storeId)
                         put("mode", current.mode)
-                        put("static_qr_storage_path", current.staticPath.ifBlank { null as String? })
+                        if (current.staticPath.isBlank()) put("static_qr_storage_path", kotlinx.serialization.json.JsonNull) else put("static_qr_storage_path", current.staticPath)
                         put("merchant_display_name", current.merchantName.trim())
                         put("provider_merchant_id", current.merchantId.trim())
                         put("provider_server_key", current.serverKey.trim())
