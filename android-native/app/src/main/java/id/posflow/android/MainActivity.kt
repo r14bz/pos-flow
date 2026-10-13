@@ -506,8 +506,8 @@ private fun StoreDashboard(
                     canDelete = store.allRoles.any { it in setOf("owner", "manager") },
                     onEdit = { editingProduct = product; showProductEditor = true },
                     onDelete = { deleteProductTarget = product },
-                    onAdjustStock = { delta ->
-                        storeDataViewModel.adjustStock(store.id, product.id, delta, "Penyesuaian dari aplikasi Android")
+                    onAdjustStock = { delta, note ->
+                        storeDataViewModel.adjustStock(store.id, product.id, delta, note)
                     }
                 )
             }
@@ -897,8 +897,11 @@ private fun ProductCard(
     canDelete: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onAdjustStock: (Int) -> Unit
+    onAdjustStock: (Int, String) -> Unit
 ) {
+    var showStockDialog by rememberSaveable(product.id) { mutableStateOf(false) }
+    var deltaText by rememberSaveable(product.id) { mutableStateOf("1") }
+    var stockNote by rememberSaveable(product.id) { mutableStateOf("") }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -927,12 +930,15 @@ private fun ProductCard(
             }
             if (canAdjustStock) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onAdjustStock(-1) }, modifier = Modifier.weight(1f), enabled = product.stock > 0) {
+                    OutlinedButton(onClick = { onAdjustStock(-1, "Penyesuaian cepat -1") }, modifier = Modifier.weight(1f), enabled = product.stock > 0) {
                         Text("− 1 stok")
                     }
-                    Button(onClick = { onAdjustStock(1) }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { onAdjustStock(1, "Penyesuaian cepat +1") }, modifier = Modifier.weight(1f)) {
                         Text("+ 1 stok")
                     }
+                }
+                OutlinedButton(onClick = { showStockDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Penyesuaian jumlah dan catatan")
                 }
             }
             if (canEdit || canDelete) {
@@ -942,6 +948,40 @@ private fun ProductCard(
                 }
             }
         }
+    }
+    if (showStockDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showStockDialog = false },
+            title = { Text("Penyesuaian stok") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Barang: ${product.name} · stok saat ini ${product.stock} ${product.unit}")
+                    OutlinedTextField(
+                        value = deltaText,
+                        onValueChange = { deltaText = it.filterIndexed { index, c -> c.isDigit() || (index == 0 && c == '-') } },
+                        label = { Text("Perubahan stok (+ tambah, - kurangi)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = stockNote,
+                        onValueChange = { stockNote = it },
+                        label = { Text("Catatan mutasi") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val delta = deltaText.toIntOrNull()
+                    if (delta != null && delta != 0) {
+                        onAdjustStock(delta, stockNote.ifBlank { "Penyesuaian stok manual" })
+                        showStockDialog = false
+                    }
+                }) { Text("Simpan") }
+            },
+            dismissButton = { TextButton(onClick = { showStockDialog = false }) { Text("Batal") } }
+        )
     }
 }
 
