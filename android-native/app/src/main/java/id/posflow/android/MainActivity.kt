@@ -54,6 +54,8 @@ import id.posflow.android.store.CheckoutViewModel
 import id.posflow.android.store.CheckoutState
 import id.posflow.android.store.QrisViewModel
 import id.posflow.android.store.QrisPaymentState
+import id.posflow.android.store.ReportViewModel
+import id.posflow.android.store.ReportState
 import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
@@ -244,10 +246,13 @@ private fun StoreDashboard(
     val checkout by checkoutViewModel.state.collectAsState()
     val qrisViewModel: QrisViewModel = viewModel()
     val qris by qrisViewModel.state.collectAsState()
+    val reportViewModel: ReportViewModel = viewModel()
+    val report by reportViewModel.state.collectAsState()
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     androidx.compose.runtime.LaunchedEffect(store.id) {
         storeDataViewModel.loadProducts(store.id)
         checkoutViewModel.load(store.id)
+        reportViewModel.load(store.id)
     }
 
     Column(
@@ -282,7 +287,7 @@ private fun StoreDashboard(
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Stok", "Kasir").forEach { tab ->
+            listOf("Stok", "Kasir", "Laporan").forEach { tab ->
                 if (page == tab) {
                     Button(onClick = { page = tab }, modifier = Modifier.weight(1f)) { Text(tab) }
                 } else {
@@ -299,6 +304,8 @@ private fun StoreDashboard(
                 qrisState = qris,
                 qrisViewModel = qrisViewModel
             )
+        } else if (page == "Laporan") {
+            ReportScreen(storeId = store.id, state = report, viewModel = reportViewModel)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
@@ -356,6 +363,60 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+private fun ReportScreen(storeId: String, state: ReportState, viewModel: ReportViewModel) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("Laporan penjualan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        TextButton(onClick = { viewModel.load(storeId, force = true) }, enabled = !state.loading) { Text("Muat ulang") }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        SummaryCard("Transaksi", state.sales.size.toString(), Modifier.weight(1f))
+        SummaryCard("Menunggu", state.pendingCount.toString(), Modifier.weight(1f))
+        SummaryCard("Batal", state.cancelledCount.toString(), Modifier.weight(1f))
+    }
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Total penjualan lunas", style = MaterialTheme.typography.titleMedium)
+            Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.revenue)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("Dihitung dari transaksi berstatus lunas yang dapat diakses akun ini.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    if (state.loading) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator()
+            Text("Memuat laporan…")
+        }
+    }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    if (!state.loading && state.sales.isEmpty() && state.error == null) {
+        Text("Belum ada transaksi pada toko ini.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    state.sales.take(100).forEach { sale ->
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(sale.receiptNo.ifBlank { sale.id }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Kasir: ${sale.cashierName.ifBlank { "—" }} · ${sale.createdAt.take(16).replace("T", " ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Metode: ${paymentLabel(sale.paymentMethod)} · Status: ${saleStatusLabel(sale.status)}", style = MaterialTheme.typography.bodySmall)
+                Text("Total: Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(sale.total)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+private fun paymentLabel(method: String): String = when (method) {
+    "cash" -> "Tunai"
+    "transfer" -> "Transfer"
+    "qris" -> "QRIS"
+    else -> method
+}
+
+private fun saleStatusLabel(status: String): String = when (status) {
+    "paid" -> "Lunas"
+    "pending" -> "Menunggu pembayaran"
+    "cancelled" -> "Dibatalkan"
+    else -> status
 }
 
 @Composable
