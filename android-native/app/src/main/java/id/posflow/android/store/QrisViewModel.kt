@@ -120,7 +120,7 @@ class QrisViewModel : ViewModel() {
                         notice = when (row.status) {
                             "paid" -> "Pembayaran sudah tercatat lunas."
                             "cancelled" -> "Transaksi dibatalkan/kedaluwarsa. Muat ulang keranjang sebelum mencoba lagi."
-                            else -> "Status pembayaran: \${row.providerStatus ?: row.status}. Periksa kembali setelah pembayaran."
+                            else -> "Status pembayaran: ${row.providerStatus ?: row.status}. Periksa kembali setelah pembayaran."
                         },
                         error = null
                     )
