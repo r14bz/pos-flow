@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import id.posflow.android.data.SupabaseClientProvider
 import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.filter.eq
-import io.github.jan.supabase.postgrest.result.decodeList
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
