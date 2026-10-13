@@ -106,6 +106,18 @@ class AdminViewModel : ViewModel() {
         }, "Kata sandi akun berhasil diubah.")
     }
 
+    fun deleteAccount(userId: String, email: String) {
+        if (email.isBlank()) {
+            _state.update { it.copy(error = "Email akun tidak tersedia untuk konfirmasi penghapusan.") }
+            return
+        }
+        action(buildJsonObject {
+            put("action", "delete_account")
+            put("user_id", userId)
+            put("confirm", email)
+        }, "Akun berhasil dihapus.")
+    }
+
     fun deleteStore(storeId: String, storeName: String) {
         action(buildJsonObject {
             put("action", "delete_store")
