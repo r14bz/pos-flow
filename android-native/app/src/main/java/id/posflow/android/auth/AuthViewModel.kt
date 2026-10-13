@@ -52,6 +52,7 @@ class AuthViewModel : ViewModel() {
     private val _state = MutableStateFlow(
         NativeAppState(
             configured = SupabaseClientProvider.isConfigured,
+            loading = SupabaseClientProvider.isConfigured,
             error = if (SupabaseClientProvider.isConfigured) null else
                 "Supabase belum dikonfigurasi untuk build ini."
         )
