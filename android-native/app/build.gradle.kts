@@ -15,8 +15,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "SUPABASE_URL", "\"\${System.getenv("SUPABASE_URL") ?: ""}\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"\${System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: ""}\"")
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: ""
+        val supabaseKey = System.getenv("SUPABASE_PUBLISHABLE_KEY") ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabaseKey\"")
     }
 
     buildFeatures {
