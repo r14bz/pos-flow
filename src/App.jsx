@@ -270,6 +270,8 @@ function App() {
   const [stockSearch, setStockSearch] = useState('')
   const [stockCategory, setStockCategory] = useState('Semua')
   const [reportDate, setReportDate] = useState(todayISO())
+  const [reportScope, setReportScope] = useState('daily')
+  const [reportMonth, setReportMonth] = useState(todayISO().slice(0, 7))
   const [savingForm, setSavingForm] = useState(false)
   const [productDraft, setProductDraft] = useState({ name: '', sku: '', barcode: '', category: 'Minuman', image_url: '', price: '', cost: '', stock: '', min_stock: '5', unit: 'pcs' })
   const [employeeDraft, setEmployeeDraft] = useState({ name: '', username: '', password: '', roles: ['cashier'] })
@@ -990,8 +992,13 @@ function App() {
     finally { setSavingForm(false) }
   }
 
-  const exportExcel = (scope = 'daily') => {
-    const filteredSales = sales.filter(s => s.status === 'paid' && (scope !== 'daily' || jakartaDateKey(s.created_at) === reportDate))
+  const exportExcel = (scope = reportScope) => {
+    const targetMonth = reportMonth || reportDate.slice(0, 7)
+    const filteredSales = sales.filter(s => {
+      if (s.status !== 'paid') return false
+      const saleDate = jakartaDateKey(s.created_at)
+      return scope === 'monthly' ? saleDate.slice(0, 7) === targetMonth : saleDate === reportDate
+    })
     const flatItems = filteredSales.flatMap(s => (s.sale_items || []).map(i => ({
       Tanggal: new Date(s.created_at).toLocaleString('id-ID'), 'No. Struk': s.receipt_no, Kasir: s.cashier_name || displayName,
       'Nama Barang': i.product_name || i.name || 'Barang', SKU: products.find(p => p.id === i.product_id)?.sku || '',
@@ -1005,7 +1012,7 @@ function App() {
     }))
     const summaryRows = [
       { Metrik: 'Nama Toko', Nilai: currentStore?.name || 'Toko' },
-      { Metrik: 'Tanggal Laporan', Nilai: reportDate },
+      { Metrik: scope === 'monthly' ? 'Bulan Laporan' : 'Tanggal Laporan', Nilai: scope === 'monthly' ? targetMonth : reportDate },
       { Metrik: 'Total Penjualan', Nilai: filteredSales.reduce((sum, s) => sum + Number(s.total || 0), 0) },
       { Metrik: 'Jumlah Transaksi', Nilai: filteredSales.length },
       { Metrik: 'Rata-rata Transaksi', Nilai: filteredSales.length ? Math.round(filteredSales.reduce((sum, s) => sum + Number(s.total || 0), 0) / filteredSales.length) : 0 },
@@ -1018,7 +1025,8 @@ function App() {
     const addSheet = (rows, name, widths) => { const ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = widths.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, name) }
     addSheet(summaryRows, 'Ringkasan', [28, 34]); addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14]); addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18]); addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18])
     wb.Props = { Title: `Laporan ${currentStore?.name || 'Toko'}`, Subject: 'Laporan POS SEMAR', Author: 'SEMAR', CreatedDate: new Date() }
-    XLSX.writeFile(wb, `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${reportDate}.xlsx`)
+    const filePeriod = scope === 'monthly' ? targetMonth : reportDate
+    XLSX.writeFile(wb, `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`)
     showToast('File Excel berhasil diunduh.')
   }
 
@@ -1059,7 +1067,14 @@ function App() {
     } catch (err) { if (err?.name !== 'NotFoundError') showToast(err?.message || 'Gagal menghubungkan printer.', 'error') }
   }
 
-  const selectedReportSales = sales.filter(s => s.status === 'paid' && jakartaDateKey(s.created_at) === reportDate)
+  const selectedReportSales = sales.filter(s => {
+    if (s.status !== 'paid') return false
+    const saleDate = jakartaDateKey(s.created_at)
+    return reportScope === 'monthly' ? saleDate.slice(0, 7) === reportMonth : saleDate === reportDate
+  })
+  const currentMonthKey = todayISO().slice(0, 7)
+  const currentMonthSales = sales.filter(s => s.status === 'paid' && jakartaDateKey(s.created_at).slice(0, 7) === currentMonthKey)
+  const currentMonthRevenue = currentMonthSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
   const todaySales = sales.filter(s => s.status === 'paid' && jakartaDateKey(s.created_at) === todayISO())
   const todayRevenue = todaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
   const lowStockProducts = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
@@ -1182,13 +1197,13 @@ function App() {
     const itemsSold = selectedReportSales.reduce((sum, s) => sum + (s.sale_items || []).reduce((a, i) => a + Number(i.qty || 0), 0), 0)
     const paymentCounts = ['cash', 'qris', 'transfer'].map(method => ({ method, count: selectedReportSales.filter(s => s.payment_method === method).length, total: selectedReportSales.filter(s => s.payment_method === method).reduce((sum, s) => sum + Number(s.total || 0), 0) }))
     return <>
-      <PageTitle eyebrow="ANALISIS BISNIS" title="Laporan penjualan" description="Ringkasan harian yang dapat diunduh dalam format Excel." actions={<button className="button button-primary" onClick={() => exportExcel('daily')}><FileSpreadsheet size={17} /> Download Excel</button>} />
-      <section className="report-filter-bar"><div className="report-filter-label"><span className="report-filter-icon"><CalendarDays size={18} /></span><span><strong>Periode laporan</strong><small>Pilih tanggal rekap penjualan</small></span></div><div className="report-filter-controls"><input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} max={todayISO()} aria-label="Tanggal laporan" /><button className="button button-secondary button-sm" onClick={() => setReportDate(todayISO())}>Hari ini</button><button className="button button-primary button-sm" onClick={() => exportExcel('daily')}><Download size={15} /> Ekspor</button></div></section>
-      <div className="report-summary-cards"><div className="report-summary-card featured"><span>Total penjualan bersih</span><strong>{idr(gross)}</strong><small><TrendingUp size={14} /> {selectedReportSales.length} transaksi berhasil</small><div className="summary-card-watermark"><Wallet size={64} /></div></div><div className="report-summary-card"><span>Total transaksi</span><strong>{selectedReportSales.length}</strong><small><ReceiptText size={14} /> Struk berhasil</small><span className="report-summary-icon"><ShoppingBag size={20} /></span></div><div className="report-summary-card"><span>Total barang terjual</span><strong>{itemsSold}</strong><small><Boxes size={14} /> Unit barang</small><span className="report-summary-icon"><Package size={20} /></span></div><div className="report-summary-card"><span>Rata-rata transaksi</span><strong>{idr(selectedReportSales.length ? gross / selectedReportSales.length : 0)}</strong><small><Activity size={14} /> Nilai per struk</small><span className="report-summary-icon"><BarChart3 size={20} /></span></div></div>
-      <div className="dashboard-grid report-grid"><section className="panel"><div className="panel-heading"><div><h3>Rincian metode pembayaran</h3><p>{new Date(`${reportDate}T12:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div></div><div className="payment-breakdown">{paymentCounts.map(item => <div className="payment-breakdown-row" key={item.method}><span className={`breakdown-icon ${item.method}`}>{item.method === 'cash' ? <Banknote size={18} /> : item.method === 'qris' ? <QrCode size={18} /> : <CreditCard size={18} />}</span><span className="breakdown-main"><strong>{paymentLabel(item.method)}</strong><small>{item.count} transaksi</small></span><span className="breakdown-money"><strong>{idr(item.total)}</strong><span className="breakdown-bar"><i style={{ width: `${gross ? item.total / gross * 100 : 0}%` }} /></span></span></div>)}</div><div className="report-total-row"><span>Total penjualan</span><strong>{idr(gross)}</strong></div></section>
+      <PageTitle eyebrow="ANALISIS BISNIS" title="Laporan penjualan" description={reportScope === 'monthly' ? "Ringkasan bulanan yang dapat diunduh dalam format Excel." : "Ringkasan harian yang dapat diunduh dalam format Excel."} actions={<button className="button button-primary" onClick={() => exportExcel(reportScope)}><FileSpreadsheet size={17} /> Download Excel</button>} />
+      <section className="report-filter-bar"><div className="report-filter-label"><span className="report-filter-icon"><CalendarDays size={18} /></span><span><strong>Periode laporan</strong><small>{reportScope === 'monthly' ? 'Pilih bulan rekap penjualan' : 'Pilih tanggal rekap penjualan'}</small></span></div><div className="report-filter-controls"><div className="report-scope-toggle" role="group" aria-label="Periode laporan"><button type="button" className={reportScope === 'daily' ? 'active' : ''} onClick={() => setReportScope('daily')}>Per Hari</button><button type="button" className={reportScope === 'monthly' ? 'active' : ''} onClick={() => setReportScope('monthly')}>Per Bulan</button></div>{reportScope === 'monthly' ? <><input type="month" value={reportMonth} onChange={e => setReportMonth(e.target.value)} max={currentMonthKey} aria-label="Bulan laporan" /><button className="button button-secondary button-sm" onClick={() => setReportMonth(currentMonthKey)}>Bulan ini</button></> : <><input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} max={todayISO()} aria-label="Tanggal laporan" /><button className="button button-secondary button-sm" onClick={() => setReportDate(todayISO())}>Hari ini</button></>}<button className="button button-primary button-sm" onClick={() => exportExcel(reportScope)}><Download size={15} /> Ekspor</button></div></section>
+      <div className="report-summary-cards"><div className="report-summary-card featured"><span>Total penjualan bersih</span><strong>{idr(gross)}</strong><small><TrendingUp size={14} /> {selectedReportSales.length} transaksi berhasil</small><div className="summary-card-watermark"><Wallet size={64} /></div></div><div className="report-summary-card"><span>Total transaksi</span><strong>{selectedReportSales.length}</strong><small><ReceiptText size={14} /> Struk berhasil</small><span className="report-summary-icon"><ShoppingBag size={20} /></span></div><div className="report-summary-card"><span>Total barang terjual</span><strong>{itemsSold}</strong><small><Boxes size={14} /> Unit barang</small><span className="report-summary-icon"><Package size={20} /></span></div><div className="report-summary-card"><span>Total Omzet Bulan Ini</span><strong>{idr(currentMonthRevenue)}</strong><small><CalendarDays size={14} /> {currentMonthSales.length} transaksi bulan ini</small><span className="report-summary-icon"><CircleDollarSign size={20} /></span></div></div>
+      <div className="dashboard-grid report-grid"><section className="panel"><div className="panel-heading"><div><h3>Rincian metode pembayaran</h3><p>{reportScope === 'monthly' ? new Date(`${reportMonth || currentMonthKey}-01T12:00:00`).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : new Date(`${reportDate}T12:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div></div><div className="payment-breakdown">{paymentCounts.map(item => <div className="payment-breakdown-row" key={item.method}><span className={`breakdown-icon ${item.method}`}>{item.method === 'cash' ? <Banknote size={18} /> : item.method === 'qris' ? <QrCode size={18} /> : <CreditCard size={18} />}</span><span className="breakdown-main"><strong>{paymentLabel(item.method)}</strong><small>{item.count} transaksi</small></span><span className="breakdown-money"><strong>{idr(item.total)}</strong><span className="breakdown-bar"><i style={{ width: `${gross ? item.total / gross * 100 : 0}%` }} /></span></span></div>)}</div><div className="report-total-row"><span>Total penjualan</span><strong>{idr(gross)}</strong></div></section>
         <section className="panel top-products-panel"><div className="panel-heading"><div><h3>Produk terlaris</h3><p>Berdasarkan jumlah unit terjual</p></div><span className="panel-icon-bubble"><TrendingUp size={17} /></span></div>{topProducts.map((p, idx) => <div className="top-product-row" key={p.name}><span className={`top-rank rank-${idx + 1}`}>{String(idx + 1).padStart(2, '0')}</span><div className="top-product-main"><strong>{p.name}</strong><div className="top-product-track"><i style={{ width: `${topProducts[0]?.qty ? p.qty / topProducts[0].qty * 100 : 0}%` }} /></div></div><div className="top-product-values"><strong>{p.qty} unit</strong><small>{idr(p.revenue)}</small></div></div>)}{!topProducts.length && <EmptyState icon={TrendingUp} title="Belum ada data" text="Produk terlaris muncul setelah ada transaksi." />}</section></div>
       <section className="panel report-transactions-panel"><div className="panel-heading"><div><h3>Transaksi dalam periode</h3><p>Data yang ikut dimasukkan ke laporan Excel</p></div><button className="text-action" onClick={() => navigate('transactions')}>Riwayat lengkap <ArrowRight size={14} /></button></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>No. struk</th><th>Waktu</th><th>Kasir</th><th>Item</th><th>Metode bayar</th><th>Total</th></tr></thead><tbody>{selectedReportSales.map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at)}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n,i)=>n+Number(i.qty||0),0)}</td><td>{paymentLabel(s.payment_method)}</td><td><strong>{idr(s.total)}</strong></td></tr>)}</tbody></table></div>{!selectedReportSales.length && <EmptyState icon={FileSpreadsheet} title="Tidak ada penjualan pada tanggal ini" text="Pilih tanggal lain untuk melihat laporan atau lakukan transaksi di kasir." />}</section>
-      <div className="report-export-note"><FileSpreadsheet size={18} /><div><strong>Ekspor laporan multi-sheet</strong><p>File Excel memuat ringkasan, transaksi, detail barang per transaksi, dan inventaris toko. Laporan hanya mencakup data dari toko yang sedang dipilih.</p></div><button className="button button-secondary" onClick={() => exportExcel('daily')}><Download size={16} /> Unduh .xlsx</button></div>
+      <div className="report-export-note"><FileSpreadsheet size={18} /><div><strong>Ekspor laporan multi-sheet</strong><p>File Excel memuat ringkasan, transaksi, detail barang per transaksi, dan inventaris toko. Laporan hanya mencakup data dari toko yang sedang dipilih.</p></div><button className="button button-secondary" onClick={() => exportExcel(reportScope)}><Download size={16} /> Unduh .xlsx</button></div>
     </>
   }
 
