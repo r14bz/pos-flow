@@ -1,3 +1,10 @@
+
+/* Customizable accent themes */
+:root[data-accent="blue"] { --accent:#2563eb; --accent-soft:#eff6ff; }
+:root[data-accent="red"] { --accent:#dc2626; --accent-soft:#fef2f2; }
+:root[data-accent="orange"] { --accent:#ea580c; --accent-soft:#fff7ed; }
+:root[data-accent="purple"] { --accent:#7c3aed; --accent-soft:#f5f3ff; }
+:root[data-accent="teal"] { --accent:#0f766e; --accent-soft:#f0fdfa; }
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
@@ -567,6 +574,16 @@ input, select, textarea { color: var(--ink); }
 .setting-toggle-row > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .setting-toggle-row strong { font-size: 10px; }.setting-toggle-row small { font-size: 9px; line-height: 1.55; color: var(--muted); }
 .settings-long-copy { margin: 0 0 15px; max-width: 550px; color: var(--muted); font-size: 10px; line-height: 1.75; }
+
+.theme-appearance-block, .accent-theme-block { display: flex; flex-direction: column; gap: 10px; }
+.theme-group { display:flex; flex-direction:column; gap:3px; }
+.theme-group strong { font-size:11px; }
+.theme-group small { font-size:9px; color:var(--muted); }
+.accent-options { display:flex; flex-wrap:wrap; gap:8px; }
+.accent-option { display:inline-flex; align-items:center; gap:7px; min-width:82px; padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); font:700 9px Manrope,sans-serif; cursor:pointer; }
+.accent-option.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.accent-swatch { width:16px; height:16px; border-radius:50%; background:#087956; }
+.accent-swatch.blue { background:#2563eb; } .accent-swatch.red { background:#dc2626; } .accent-swatch.orange { background:#ea580c; } .accent-swatch.purple { background:#7c3aed; } .accent-swatch.teal { background:#0f766e; }
 .theme-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .theme-options button { display: flex; flex-direction: column; gap: 9px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); text-align: left; color: var(--ink); }
 .theme-options button.selected { border-color: #82c5a7; box-shadow: 0 0 0 2px rgba(13,138,103,.06); }
