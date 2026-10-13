@@ -101,7 +101,7 @@ class StoreDataViewModel : ViewModel() {
                     put("store_id", storeId)
                     put("name", name.trim())
                     put("sku", sku.trim())
-                    put("barcode", barcode.trim().ifBlank { null as String? })
+                    if (barcode.trim().isNotBlank()) put("barcode", barcode.trim()) else put("barcode", kotlinx.serialization.json.JsonNull)
                     put("category", category.trim().ifBlank { "Lainnya" })
                     put("unit", unit.trim().ifBlank { "pcs" })
                     put("price", price)
