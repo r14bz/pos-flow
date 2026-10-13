@@ -15,11 +15,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 @Serializable
 data class StoreMembershipRow(
-    val storeId: String = "",
-    val userId: String = "",
+    @SerialName("store_id") val storeId: String = "",
+    @SerialName("user_id") val userId: String = "",
     val role: String = "viewer"
 )
 
@@ -27,7 +28,7 @@ data class StoreMembershipRow(
 data class StoreRow(
     val id: String = "",
     val name: String = "",
-    val storeCode: String = "",
+    @SerialName("store_code") val storeCode: String = "",
     val status: String = "active"
 )
 
