@@ -240,6 +240,7 @@ function PageTitle({ eyebrow, title, description, actions }) {
 
 function App() {
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem('tokoflow-theme') || 'light' } catch { return 'light' } })
+  const [accentTheme, setAccentTheme] = useState(() => { try { return localStorage.getItem('tokoflow-accent') || 'green' } catch { return 'green' } })
   const [page, setPage] = useState(window.location.pathname === '/cashier' ? 'cashier' : 'dashboard')
   const [session, setSession] = useState(null)
   const [demo, setDemo] = useState(false)
@@ -313,6 +314,11 @@ function App() {
     document.documentElement.dataset.theme = theme
     try { localStorage.setItem('tokoflow-theme', theme) } catch {}
   }, [theme])
+
+  useEffect(() => {
+    document.documentElement.dataset.accent = accentTheme
+    try { localStorage.setItem('tokoflow-accent', accentTheme) } catch {}
+  }, [accentTheme])
 
   useEffect(() => {
     const onInstall = (event) => { event.preventDefault(); setDeferredPrompt(event) }
@@ -1273,7 +1279,7 @@ function App() {
           <p className="settings-footnote">QRIS statis harus dikonfirmasi setelah memeriksa transaksi pada portal merchant. QRIS dinamis hanya dianggap lunas setelah webhook bertanda tangan valid.</p>
         </>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon amber"><Bell size={19} /></span><div><h3>Notifikasi & laporan</h3><p>Pengingat stok dan ringkasan harian</p></div></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><AlertTriangle size={17} /></span><div><strong>Stok menipis</strong><small>Ingatkan saat jumlah barang mencapai stok minimum.</small></div><button className="button button-secondary button-sm" onClick={enablePush}><Bell size={14} /> Aktifkan push</button></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><FileSpreadsheet size={17} /></span><div><strong>Laporan harian</strong><small>Ringkasan penjualan dapat dijadwalkan dikirim melalui push notification.</small></div><button className="button button-secondary button-sm" onClick={() => { setReportDate(todayISO()); navigate('reports') }}>Lihat laporan</button></div><p className="settings-footnote">Pengiriman push saat aplikasi tertutup membutuhkan konfigurasi VAPID dan fungsi terjadwal di Supabase. Lihat README untuk langkah aktivasi.</p></section>
-      <section className="panel settings-section appearance-settings"><div className="settings-section-heading"><span className="settings-icon"><Sun size={19} /></span><div><h3>Tampilan aplikasi</h3><p>Sesuaikan dengan kenyamanan Anda</p></div></div><div className="theme-options"><button className={theme === 'light' ? 'selected' : ''} onClick={() => setTheme('light')}><span className="theme-preview light-preview"><i /><i /><i /></span><strong><Sun size={16} /> Mode terang</strong>{theme === 'light' && <CheckCircle2 size={17} />}</button><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setTheme('dark')}><span className="theme-preview dark-preview"><i /><i /><i /></span><strong><Moon size={16} /> Mode gelap</strong>{theme === 'dark' && <CheckCircle2 size={17} />}</button></div></section>
+      <section className="panel settings-section appearance-settings"><div className="settings-section-heading"><span className="settings-icon"><Sun size={19} /></span><div><h3>Tampilan aplikasi</h3><p>Sesuaikan dengan kenyamanan Anda</p></div></div><div className="theme-appearance-block"><div className="theme-group"><strong>Mode tampilan</strong><small>Pilih terang atau gelap</small></div><div className="theme-options"><button className={theme === 'light' ? 'selected' : ''} onClick={() => setTheme('light')}><span className="theme-preview light-preview"><i /><i /><i /></span><strong><Sun size={16} /> Mode terang</strong>{theme === 'light' && <CheckCircle2 size={17} />}</button><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setTheme('dark')}><span className="theme-preview dark-preview"><i /><i /><i /></span><strong><Moon size={16} /> Mode gelap</strong>{theme === 'dark' && <CheckCircle2 size={17} />}</button></div></section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat (PWA)</h3><p>Pasang SEMAR di layar utama</p></div></div><p className="settings-long-copy">Akses lebih cepat dari layar utama dan dapat membuka shell aplikasi saat koneksi terbatas. Fitur install sengaja tidak ditampilkan pada halaman kasir agar area transaksi tetap fokus.</p><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install SEMAR</button>{!deferredPrompt && <small className="settings-footnote">Jika tombol install tidak menampilkan prompt, gunakan menu browser “Tambahkan ke layar utama”.</small>}</section></div>
   </>
 
