@@ -45,6 +45,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:functions-kt")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("io.ktor:ktor-client-android:3.0.3")
 
     implementation("androidx.activity:activity-compose:1.10.1")
