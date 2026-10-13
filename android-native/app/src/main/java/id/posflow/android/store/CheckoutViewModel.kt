@@ -80,7 +80,11 @@ class CheckoutViewModel : ViewModel() {
         }
     }
 
-    fun clearCart() {\n        _state.update { it.copy(quantities = emptyMap(), discountText = "0", error = null, successMessage = null) }\n    }\n\n    fun setDiscount(value: String) {
+    fun clearCart() {
+        _state.update { it.copy(quantities = emptyMap(), discountText = "0", error = null, successMessage = null) }
+    }
+
+    fun setDiscount(value: String) {
         _state.update { it.copy(discountText = value.filter { c -> c.isDigit() || c == '.' || c == ',' }.replace(',', '.'), error = null) }
     }
 
