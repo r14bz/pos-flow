@@ -43,6 +43,8 @@ import id.posflow.android.auth.AuthViewModel
 import id.posflow.android.auth.NativeAppState
 import id.posflow.android.auth.StoreChoice
 import id.posflow.android.store.StoreDataViewModel
+import id.posflow.android.store.CheckoutViewModel
+import id.posflow.android.store.CheckoutState
 import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
@@ -229,8 +231,12 @@ private fun StoreDashboard(
 ) {
     val store = state.selectedStore ?: return
     val data by storeDataViewModel.state.collectAsState()
+    val checkoutViewModel: CheckoutViewModel = viewModel()
+    val checkout by checkoutViewModel.state.collectAsState()
+    var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     androidx.compose.runtime.LaunchedEffect(store.id) {
         storeDataViewModel.loadProducts(store.id)
+        checkoutViewModel.load(store.id)
     }
 
     Column(
@@ -246,7 +252,7 @@ private fun StoreDashboard(
         ) {
             Column {
                 Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Text("Ringkasan toko", style = MaterialTheme.typography.titleMedium)
+                Text(if (page == "Kasir") "Kasir" else "Ringkasan toko", style = MaterialTheme.typography.titleMedium)
             }
             TextButton(onClick = { storeDataViewModel.loadProducts(store.id, force = true) }, enabled = !data.loading) {
                 Text("Muat ulang")
@@ -264,44 +270,62 @@ private fun StoreDashboard(
                 Text("Akun: ${state.email.orEmpty()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
-            SummaryCard("Total stok", data.totalUnits.toString(), Modifier.weight(1f))
-            SummaryCard("Stok menipis", data.lowStockCount.toString(), Modifier.weight(1f))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Inventaris", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("${data.products.size} barang", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (data.loading) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CircularProgressIndicator()
-                Text("Memuat data inventaris…")
-            }
-        }
-        data.error?.let {
-            Text("Inventaris gagal dimuat: $it", color = MaterialTheme.colorScheme.error)
-        }
-        if (!data.loading && data.error == null && data.products.isEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Text("Belum ada barang pada toko ini.", modifier = Modifier.padding(16.dp))
-            }
-        }
-        data.notice?.let {
-            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-        }
-        data.products.forEach { product ->
-            ProductCard(
-                product = product,
-                canAdjustStock = store.role in setOf("owner", "manager", "inventory"),
-                onAdjustStock = { delta ->
-                    storeDataViewModel.adjustStock(store.id, product.id, delta, "Penyesuaian dari aplikasi Android")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Stok", "Kasir").forEach { tab ->
+                if (page == tab) {
+                    Button(onClick = { page = tab }, modifier = Modifier.weight(1f)) { Text(tab) }
+                } else {
+                    OutlinedButton(onClick = { page = tab }, modifier = Modifier.weight(1f)) { Text(tab) }
                 }
+            }
+        }
+        if (page == "Kasir") {
+            CashierScreen(
+                storeId = store.id,
+                role = store.role,
+                state = checkout,
+                viewModel = checkoutViewModel
             )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
+                SummaryCard("Total stok", data.totalUnits.toString(), Modifier.weight(1f))
+                SummaryCard("Stok menipis", data.lowStockCount.toString(), Modifier.weight(1f))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Inventaris", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("${data.products.size} barang", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (data.loading) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CircularProgressIndicator()
+                    Text("Memuat data inventaris…")
+                }
+            }
+            data.error?.let {
+                Text("Inventaris gagal dimuat: $it", color = MaterialTheme.colorScheme.error)
+            }
+            if (!data.loading && data.error == null && data.products.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text("Belum ada barang pada toko ini.", modifier = Modifier.padding(16.dp))
+                }
+            }
+            data.notice?.let {
+                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            }
+            data.products.forEach { product ->
+                ProductCard(
+                    product = product,
+                    canAdjustStock = store.role in setOf("owner", "manager", "inventory"),
+                    onAdjustStock = { delta ->
+                        storeDataViewModel.adjustStock(store.id, product.id, delta, "Penyesuaian dari aplikasi Android")
+                    }
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
         OutlinedButton(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) {
@@ -318,6 +342,91 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier = Modif
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun CashierScreen(
+    storeId: String,
+    role: String,
+    state: CheckoutState,
+    viewModel: CheckoutViewModel
+) {
+    val canCheckout = role in setOf("owner", "manager", "cashier")
+    Text("Pilih barang", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    if (state.loading && state.products.isEmpty()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator()
+            Text("Memuat barang untuk kasir…")
+        }
+    }
+    state.products.filter { it.stock > 0 }.forEach { product ->
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Stok \${product.stock} · Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = { viewModel.add(product) }, enabled = canCheckout && !state.loading) { Text("Tambah") }
+            }
+        }
+    }
+    Text("Keranjang (\${state.cartCount})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    state.quantities.forEach { (productId, qty) ->
+        val product = state.products.firstOrNull { it.id == productId }
+        if (product != null) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(product.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Text("\${qty} × Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodySmall)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { viewModel.decrement(product) }, enabled = !state.loading) { Text("−") }
+                    Text(qty.toString())
+                    TextButton(onClick = { viewModel.add(product) }, enabled = !state.loading && qty < product.stock) { Text("+") }
+                }
+            }
+        }
+    }
+    OutlinedTextField(
+        value = state.discountText,
+        onValueChange = { viewModel.setDiscount(it) },
+        label = { Text("Diskon (Rp)") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        enabled = canCheckout && !state.loading
+    )
+    Text("Subtotal: Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.subtotal)}")
+    Text("Total: Rp \${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(state.total)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Metode pembayaran", style = MaterialTheme.typography.titleMedium)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (state.paymentMethod == "cash") {
+            Button(onClick = { viewModel.setPaymentMethod("cash") }, modifier = Modifier.weight(1f)) { Text("Tunai") }
+        } else {
+            OutlinedButton(onClick = { viewModel.setPaymentMethod("cash") }, modifier = Modifier.weight(1f)) { Text("Tunai") }
+        }
+        if (state.paymentMethod == "transfer") {
+            Button(onClick = { viewModel.setPaymentMethod("transfer") }, modifier = Modifier.weight(1f)) { Text("Transfer") }
+        } else {
+            OutlinedButton(onClick = { viewModel.setPaymentMethod("transfer") }, modifier = Modifier.weight(1f)) { Text("Transfer") }
+        }
+    }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+    state.successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
+    Button(
+        onClick = { viewModel.checkout(storeId) },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = canCheckout && !state.loading && state.cartCount > 0
+    ) {
+        if (state.loading) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
+        else Text("Selesaikan transaksi")
+    }
+    if (!canCheckout) {
+        Text("Akun dengan peran ini hanya dapat melihat stok; akses kasir tidak tersedia.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
