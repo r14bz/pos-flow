@@ -226,7 +226,7 @@ private fun StoreCard(store: StoreChoice, onClick: () -> Unit) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(store.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("Kode toko: ${store.code}", style = MaterialTheme.typography.bodyMedium)
-            Text("Peran: ${roleLabel(store.role)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("Peran: ${store.allRoles.joinToString(", ") { roleLabel(it) }}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Text("Ketuk untuk membuka toko", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -277,7 +277,7 @@ private fun StoreDashboard(
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(store.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Kode toko: ${store.code}")
-                Text("Akses: ${roleLabel(store.role)}")
+                Text("Akses: ${store.allRoles.joinToString(", ") { roleLabel(it) }}")
                 Text("Akun: ${state.email.orEmpty()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -293,7 +293,7 @@ private fun StoreDashboard(
         if (page == "Kasir") {
             CashierScreen(
                 storeId = store.id,
-                role = store.role,
+                role = store.allRoles.joinToString(","),
                 state = checkout,
                 viewModel = checkoutViewModel,
                 qrisState = qris,
@@ -333,7 +333,7 @@ private fun StoreDashboard(
             data.products.forEach { product ->
                 ProductCard(
                     product = product,
-                    canAdjustStock = store.role in setOf("owner", "manager", "inventory"),
+                    canAdjustStock = store.allRoles.any { it in setOf("owner", "manager", "inventory") },
                     onAdjustStock = { delta ->
                         storeDataViewModel.adjustStock(store.id, product.id, delta, "Penyesuaian dari aplikasi Android")
                     }
@@ -367,7 +367,7 @@ private fun CashierScreen(
     qrisState: QrisPaymentState,
     qrisViewModel: QrisViewModel
 ) {
-    val canCheckout = role in setOf("owner", "manager", "cashier")
+    val canCheckout = role.split(",").any { it.trim() in setOf("owner", "manager", "cashier") }
     Text("Pilih barang", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     if (state.loading && state.products.isEmpty()) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
