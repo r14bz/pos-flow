@@ -4,15 +4,16 @@ Aplikasi Android native terpisah dari web app, dibangun dengan Kotlin, Jetpack C
 
 ## Status
 
-Fondasi native kini mencakup:
-- Form login yang memanggil Supabase Auth menggunakan email dan kata sandi.
-- Pemulihan sesi autentikasi saat aplikasi dibuka kembali.
-- Pembacaan keanggotaan melalui `store_memberships`, kemudian validasi toko aktif melalui `stores`.
-- Pemilihan toko dan tampilan awal untuk toko yang dipilih.
-- Tombol keluar yang mengakhiri sesi Supabase.
-- Workflow GitHub Actions untuk mencoba build debug APK saat ada perubahan Android.
+Fitur native yang telah dibuat dalam branch ini:
+- Login Supabase Auth dengan email/kata sandi dan pemulihan sesi.
+- Pemilihan toko dari `store_memberships` dan `stores`, dengan pemfilteran data berdasarkan toko aktif.
+- Ringkasan inventaris, indikator stok menipis, dan daftar produk.
+- Penyesuaian stok melalui RPC `adjust_stock`, yang memeriksa role di backend dan mencatat mutasi.
+- Keranjang kasir, diskon, pilihan tunai/transfer, dan checkout atomik melalui RPC `checkout_sale`.
+- QRIS statis dan dinamis melalui Edge Functions backend yang sudah ada, termasuk tampilan QR, pemeriksaan status, serta konfirmasi manual QRIS statis yang tetap memerlukan verifikasi merchant.
+- Keluar akun dan workflow GitHub Actions untuk build APK debug.
 
-Build dan pengujian pada perangkat/emulator belum dikonfirmasi. Aplikasi belum siap untuk transaksi produksi; dashboard, inventaris, kasir, dan integrasi pembayaran native belum dibuat.
+Status penting: build terakhir masih dalam proses validasi otomatis. Pengujian perangkat/emulator belum dilakukan. Fitur laporan lengkap, pengelolaan produk/karyawan, administrator, barcode, printer Bluetooth, dan notifikasi native belum selesai; jangan gunakan aplikasi ini untuk transaksi produksi sebelum semua alur kritis dan isolasi multi-toko diuji.
 
 ## Persyaratan build
 
