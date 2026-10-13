@@ -7,6 +7,10 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.result.decodeAs
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.postgrest.query.filter.eq
 import io.github.jan.supabase.postgrest.result.decodeList
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,30 +108,44 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signIn(email: String, password: String) {
+    fun signIn(identifier: String, password: String, storeCode: String) {
         if (!SupabaseClientProvider.isConfigured) {
             _state.update {
                 it.copy(error = "Atur SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY sebelum login.")
             }
             return
         }
-        val cleanEmail = email.trim()
-        if (cleanEmail.isBlank() || password.isBlank()) {
-            _state.update { it.copy(error = "Email dan kata sandi wajib diisi.") }
+        val cleanIdentifier = identifier.trim()
+        val cleanStoreCode = storeCode.trim()
+        if (cleanIdentifier.isBlank() || password.isBlank()) {
+            _state.update { it.copy(error = "Email/username dan kata sandi wajib diisi.") }
+            return
+        }
+        if (!cleanIdentifier.contains("@") && cleanStoreCode.isBlank()) {
+            _state.update { it.copy(error = "Kode toko wajib diisi untuk login menggunakan username karyawan.") }
             return
         }
 
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null, notice = null) }
             try {
+                val loginEmail = if (cleanIdentifier.contains("@")) {
+                    cleanIdentifier
+                } else {
+                    val resolvedStoreId = SupabaseClientProvider.client.postgrest.rpc(
+                        "resolve_store_code",
+                        buildJsonObject { put("p_store_code", cleanStoreCode) }
+                    ).decodeAs<String>()
+                    "emp-${cleanIdentifier.lowercase()}@${resolvedStoreId}.employee.invalid"
+                }
                 SupabaseClientProvider.client.auth.signInWith(Email) {
-                    this.email = cleanEmail
+                    this.email = loginEmail
                     this.password = password
                 }
                 val user = SupabaseClientProvider.client.auth.currentUserOrNull()
-                    ?: error("Login belum menghasilkan sesi aktif. Periksa verifikasi email akun.")
+                    ?: error("Login belum menghasilkan sesi aktif. Periksa email atau kredensial akun.")
                 _state.update {
-                    it.copy(email = user.email ?: cleanEmail, loading = true, error = null)
+                    it.copy(email = user.email ?: cleanIdentifier, loading = true, error = null)
                 }
                 loadStores(user.id)
             } catch (error: Exception) {
