@@ -16,6 +16,7 @@ permissions:
 jobs:
   assemble-debug:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +41,7 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Assemble debug APK
-        run: gradle --no-daemon -p android-native :app:assembleDebug
+        run: gradle --no-daemon --console=plain --stacktrace -p android-native :app:assembleDebug
         env:
           SUPABASE_URL: https://vegbcxmkpffwfxksdznu.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_kO93v3PWEgsEI9loYuyfGw_nqApuGbq
