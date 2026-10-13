@@ -5,12 +5,6 @@ on:
     paths:
       - "android-native/**"
       - ".github/workflows/native-android.yml"
-  push:
-    branches:
-      - feature/native-android-foundation
-    paths:
-      - "android-native/**"
-      - ".github/workflows/native-android.yml"
 
 concurrency:
   group: native-android-${{ github.workflow }}-${{ github.ref }}
