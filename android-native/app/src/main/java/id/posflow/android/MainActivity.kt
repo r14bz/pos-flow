@@ -42,6 +42,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import id.posflow.android.auth.AuthViewModel
 import id.posflow.android.auth.NativeAppState
 import id.posflow.android.auth.StoreChoice
+import id.posflow.android.store.StoreDataViewModel
+import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
 class MainActivity : ComponentActivity() {
@@ -220,43 +222,119 @@ private fun StoreCard(store: StoreChoice, onClick: () -> Unit) {
 }
 
 @Composable
-private fun StoreDashboard(state: NativeAppState, viewModel: AuthViewModel) {
+private fun StoreDashboard(
+    state: NativeAppState,
+    viewModel: AuthViewModel,
+    storeDataViewModel: StoreDataViewModel = viewModel()
+) {
     val store = state.selectedStore ?: return
+    val data by storeDataViewModel.state.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(store.id) {
+        storeDataViewModel.loadProducts(store.id)
+    }
+
     Column(
         modifier = Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(8.dp))
-        Text("Berhasil masuk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text("Ringkasan toko", style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = { storeDataViewModel.loadProducts(store.id, force = true) }, enabled = !data.loading) {
+                Text("Muat ulang")
+            }
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(store.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Kode toko: ${store.code}")
                 Text("Akses: ${roleLabel(store.role)}")
                 Text("Akun: ${state.email.orEmpty()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.height(20.dp))
-        Text("Fondasi akun dan pemilihan toko sudah terhubung. Modul dashboard, stok, dan kasir akan ditambahkan berikutnya.", style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
+            SummaryCard("Total stok", data.totalUnits.toString(), Modifier.weight(1f))
+            SummaryCard("Stok menipis", data.lowStockCount.toString(), Modifier.weight(1f))
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Inventaris", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("${data.products.size} barang", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (data.loading) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator()
+                Text("Memuat data inventaris…")
+            }
+        }
+        data.error?.let {
+            Text("Inventaris gagal dimuat: $it", color = MaterialTheme.colorScheme.error)
+        }
+        if (!data.loading && data.error == null && data.products.isEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Text("Belum ada barang pada toko ini.", modifier = Modifier.padding(16.dp))
+            }
+        }
+        data.products.forEach { product -> ProductCard(product) }
+        Spacer(Modifier.height(4.dp))
         OutlinedButton(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) {
             Text("Keluar dari akun")
         }
-        if (state.loading) {
-            Spacer(Modifier.height(12.dp))
-            CircularProgressIndicator()
+        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        state.error?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = MaterialTheme.colorScheme.error)
+    }
+}
+
+@Composable
+private fun ProductCard(product: NativeProduct) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("SKU: ${product.sku.ifBlank { "—" }} · ${product.category}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(product.price)}", style = MaterialTheme.typography.bodyMedium)
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("${product.stock} ${product.unit}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (product.stock <= product.minStock) {
+                    Text("Stok menipis", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                } else {
+                    Text("Stok aman", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
         }
     }
 }
