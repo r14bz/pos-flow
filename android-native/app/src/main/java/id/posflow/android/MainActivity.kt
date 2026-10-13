@@ -441,7 +441,11 @@ private fun StoreDashboard(
                     Text("Muat ulang")
                 }
                 if (state.stores.size > 1) {
-                    TextButton(onClick = { viewModel.showStorePicker() }) { Text("Ganti toko") }
+                    TextButton(onClick = {
+                        checkoutViewModel.clearCart()
+                        qrisViewModel.reset()
+                        viewModel.showStorePicker()
+                    }) { Text("Ganti toko") }
                 }
             }
         }
@@ -530,7 +534,11 @@ private fun StoreDashboard(
             }
         }
         Spacer(Modifier.height(4.dp))
-        OutlinedButton(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = {
+            checkoutViewModel.clearCart()
+            qrisViewModel.reset()
+            viewModel.signOut()
+        }, modifier = Modifier.fillMaxWidth()) {
             Text("Keluar dari akun")
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
