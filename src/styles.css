@@ -1125,3 +1125,64 @@ input, select, textarea { color: var(--ink); }
 .cashier-camera-button { margin-top: 10px; }
 .cashier-scan-note { display: flex; align-items: center; gap: 7px; max-width: 620px; margin-top: 24px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 @media (max-width: 900px) { .cashier-scan-layout { grid-template-columns: 1fr; } .cashier-scan-box { min-height: 300px; padding: 30px 18px; } }
+
+
+/* Full application theme palettes: surfaces, typography, borders, and accents */
+:root[data-theme='light'][data-accent='blue'] {
+  --accent:#2563eb; --accent-dark:#1d4ed8; --accent-soft:#e8f0ff; --accent-pale:#f1f5ff;
+  --ink:#17243a; --muted:#69788f; --muted-2:#8b98ad; --canvas:#f2f6fd; --surface:#ffffff;
+  --surface-2:#f7f9ff; --surface-3:#eaf0fb; --line:#e1e8f5; --line-strong:#cfd9eb; --shadow:0 8px 24px rgba(30,64,125,.07);
+}
+:root[data-theme='light'][data-accent='red'] {
+  --accent:#dc2626; --accent-dark:#b91c1c; --accent-soft:#ffeded; --accent-pale:#fff5f5;
+  --ink:#352020; --muted:#8a6c6c; --muted-2:#aa8d8d; --canvas:#fcf4f4; --surface:#fffefe;
+  --surface-2:#fff8f8; --surface-3:#f9eaea; --line:#f0dfdf; --line-strong:#e6cccc; --shadow:0 8px 24px rgba(130,35,35,.06);
+}
+:root[data-theme='light'][data-accent='orange'] {
+  --accent:#ea580c; --accent-dark:#c2410c; --accent-soft:#fff0e5; --accent-pale:#fff8f1;
+  --ink:#38271c; --muted:#8a7565; --muted-2:#aa9585; --canvas:#fcf6f0; --surface:#fffefd;
+  --surface-2:#fffaf5; --surface-3:#f8ede1; --line:#efe3d7; --line-strong:#e2d1c0; --shadow:0 8px 24px rgba(130,75,25,.06);
+}
+:root[data-theme='light'][data-accent='purple'] {
+  --accent:#7c3aed; --accent-dark:#6d28d9; --accent-soft:#f0eaff; --accent-pale:#f8f5ff;
+  --ink:#2a2140; --muted:#786b91; --muted-2:#9b8db0; --canvas:#f7f4fd; --surface:#fffefe;
+  --surface-2:#fbf9ff; --surface-3:#f0eafa; --line:#e8e0f4; --line-strong:#d9cde9; --shadow:0 8px 24px rgba(75,45,125,.06);
+}
+:root[data-theme='light'][data-accent='teal'] {
+  --accent:#0f766e; --accent-dark:#115e59; --accent-soft:#e0f5f2; --accent-pale:#f0fbf9;
+  --ink:#18312f; --muted:#688582; --muted-2:#8ca6a2; --canvas:#f0f8f7; --surface:#feffff;
+  --surface-2:#f6fbfa; --surface-3:#e5f2f0; --line:#dcebe8; --line-strong:#c8ded9; --shadow:0 8px 24px rgba(20,90,80,.06);
+}
+:root[data-theme='dark'][data-accent='blue'] {
+  --accent:#60a5fa; --accent-dark:#3b82f6; --accent-soft:#203756; --accent-pale:#18283d;
+  --ink:#e7eefb; --muted:#a0b0c9; --muted-2:#7f91ad; --canvas:#101824; --surface:#172231;
+  --surface-2:#1b293b; --surface-3:#24364b; --line:#2b3c52; --line-strong:#3a506b; --shadow:0 8px 24px rgba(0,0,0,.18);
+}
+:root[data-theme='dark'][data-accent='red'] {
+  --accent:#f87171; --accent-dark:#ef4444; --accent-soft:#48282d; --accent-pale:#2c1d22;
+  --ink:#f4e8e8; --muted:#c1a0a3; --muted-2:#9d7e82; --canvas:#1b1417; --surface:#251b1f;
+  --surface-2:#2d2025; --surface-3:#3a282e; --line:#493238; --line-strong:#5c3d45; --shadow:0 8px 24px rgba(0,0,0,.2);
+}
+:root[data-theme='dark'][data-accent='orange'] {
+  --accent:#fb923c; --accent-dark:#f97316; --accent-soft:#4a3021; --accent-pale:#2e2119;
+  --ink:#f4e9df; --muted:#c4a58d; --muted-2:#9e8069; --canvas:#1b1713; --surface:#262019;
+  --surface-2:#30271e; --surface-3:#403326; --line:#4a3b2c; --line-strong:#604b37; --shadow:0 8px 24px rgba(0,0,0,.2);
+}
+:root[data-theme='dark'][data-accent='purple'] {
+  --accent:#c4b5fd; --accent-dark:#a78bfa; --accent-soft:#352b50; --accent-pale:#241e35;
+  --ink:#eee9fc; --muted:#b1a5ca; --muted-2:#9184ad; --canvas:#171420; --surface:#211c2c;
+  --surface-2:#292336; --surface-3:#372e47; --line:#40364f; --line-strong:#544766; --shadow:0 8px 24px rgba(0,0,0,.2);
+}
+:root[data-theme='dark'][data-accent='teal'] {
+  --accent:#5eead4; --accent-dark:#2dd4bf; --accent-soft:#1e4544; --accent-pale:#172d2d;
+  --ink:#e3f4f1; --muted:#9ebfbb; --muted-2:#7f9f9a; --canvas:#111b1b; --surface:#192625;
+  --surface-2:#1e302f; --surface-3:#29403e; --line:#2d4543; --line-strong:#3b5b58; --shadow:0 8px 24px rgba(0,0,0,.2);
+}
+/* Apply the chosen palette consistently to branded and interactive areas. */
+.auth-story { background:var(--accent-dark); }
+.auth-story h1 em { color:var(--accent-soft); }
+.button-secondary:hover:not(:disabled), .button-outline:hover:not(:disabled) { border-color:var(--accent); background:var(--accent-pale); }
+.store-switcher:hover { border-color:var(--accent); }
+.theme-options button.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+.auth-form input:focus, .form-stack input:focus, .form-stack select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline:3px solid var(--accent-soft); outline-offset:2px; }
