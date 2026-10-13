@@ -424,8 +424,13 @@ private fun StoreDashboard(
                 Text("POS Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Text(if (page == "Kasir") "Kasir" else "Ringkasan toko", style = MaterialTheme.typography.titleMedium)
             }
-            TextButton(onClick = { storeDataViewModel.loadProducts(store.id, force = true) }, enabled = !data.loading) {
-                Text("Muat ulang")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { storeDataViewModel.loadProducts(store.id, force = true) }, enabled = !data.loading) {
+                    Text("Muat ulang")
+                }
+                if (state.stores.size > 1) {
+                    TextButton(onClick = { viewModel.showStorePicker() }) { Text("Ganti toko") }
+                }
             }
         }
         Card(
@@ -782,7 +787,7 @@ private fun CashierScreen(
             onClick = { qrisViewModel.create(storeId, state.quantities, state.discount, "static") },
             modifier = Modifier.weight(1f),
             enabled = canCheckout && !state.loading && !qrisState.loading && state.cartCount > 0 &&
-                !(qrisState.saleId != null && qrisState.status == "pending")
+                qrisState.saleId == null
         ) { Text("QRIS statis") }
         OutlinedButton(
             onClick = { qrisViewModel.create(storeId, state.quantities, state.discount, "dynamic") },
