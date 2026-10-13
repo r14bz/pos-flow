@@ -108,8 +108,8 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
     androidx.compose.runtime.LaunchedEffect(Unit) { adminViewModel.loadDirectory() }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -131,8 +131,12 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
             SummaryCard("Toko", owners.sumOf { it.stores.size }.toString(), Modifier.weight(1f))
         }
         owners.forEach { account ->
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(account.fullName.ifBlank { account.email.ifBlank { account.userId } }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(account.email.ifBlank { "Email tidak tersedia" }, style = MaterialTheme.typography.bodyMedium)
                     Text(if (account.isSuperAdmin) "Administrator pusat" else if (account.suspended) "Akun ditangguhkan" else "Akun aktif")
@@ -148,8 +152,12 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
                         }
                     }
                     account.stores.forEach { store ->
-                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(store.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                 Text("Kode: ${store.storeCode} · ${store.city}", style = MaterialTheme.typography.bodySmall)
                                 Text("Status: ${store.status} · Karyawan: ${store.employees.size}", style = MaterialTheme.typography.bodySmall)
