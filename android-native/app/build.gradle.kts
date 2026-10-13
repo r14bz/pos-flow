@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "id.posflow.android"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "id.posflow.android"
