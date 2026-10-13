@@ -103,14 +103,17 @@ class QrisViewModel : ViewModel() {
         }
     }
 
-    fun refreshStatus() {
+    fun refreshStatus(storeId: String) {
         val saleId = _state.value.saleId ?: return
         if (_state.value.loading) return
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             try {
                 val row = SupabaseClientProvider.client.from("sales").select {
-                    filter { eq("id", saleId) }
+                    filter {
+                        eq("id", saleId)
+                        eq("store_id", storeId)
+                    }
                 }.decodeList<SalePaymentRow>().firstOrNull()
                     ?: error("Transaksi tidak ditemukan atau tidak dapat diakses.")
                 _state.update {
