@@ -716,7 +716,7 @@ private fun CashierScreen(
         val scanned = result.contents
         if (!scanned.isNullOrBlank()) {
             val product = state.products.firstOrNull {
-                it.barcode.equals(scanned, ignoreCase = true) || it.sku.equals(scanned, ignoreCase = true)
+                it.barcode?.equals(scanned, ignoreCase = true) == true || it.sku.equals(scanned, ignoreCase = true)
             }
             if (product != null) {
                 viewModel.add(product)
@@ -830,7 +830,7 @@ private fun CashierScreen(
             onClick = { qrisViewModel.create(storeId, state.quantities, state.discount, "dynamic") },
             modifier = Modifier.weight(1f),
             enabled = canCheckout && !state.loading && !qrisState.loading && state.cartCount > 0 &&
-                !(qrisState.saleId != null && qrisState.status == "pending")
+                qrisState.saleId == null
         ) { Text("QRIS dinamis") }
     }
     qrisState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
