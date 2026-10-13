@@ -2,11 +2,14 @@ package id.posflow.android
 
 import android.os.Bundle
 import android.graphics.Bitmap
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import coil.compose.AsyncImage
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -707,14 +710,48 @@ private fun CashierScreen(
     qrisViewModel: QrisViewModel
 ) {
     val canCheckout = role.split(",").any { it.trim() in setOf("owner", "manager", "cashier") }
+    var barcodeQuery by rememberSaveable(storeId) { mutableStateOf("") }
+    var scanMessage by rememberSaveable(storeId) { mutableStateOf<String?>(null) }
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val scanned = result.contents
+        if (!scanned.isNullOrBlank()) {
+            val product = state.products.firstOrNull {
+                it.barcode.equals(scanned, ignoreCase = true) || it.sku.equals(scanned, ignoreCase = true)
+            }
+            if (product != null) {
+                viewModel.add(product)
+                barcodeQuery = ""
+                scanMessage = "Barang ${product.name} ditambahkan ke keranjang."
+            } else {
+                barcodeQuery = scanned
+                scanMessage = "Barcode belum cocok dengan barang terdaftar. Periksa data barcode barang."
+            }
+        }
+    }
     Text("Pilih barang", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = barcodeQuery,
+            onValueChange = { barcodeQuery = it; scanMessage = null },
+            label = { Text("Cari nama / SKU / barcode") },
+            modifier = Modifier.weight(1f),
+            singleLine = true
+        )
+        OutlinedButton(
+            onClick = { scanLauncher.launch(ScanOptions().setPrompt("Arahkan kamera ke barcode barang").setBeepEnabled(false).setOrientationLocked(false)) },
+            enabled = canCheckout && !state.loading
+        ) { Text("Pindai") }
+    }
+    scanMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
     if (state.loading && state.products.isEmpty()) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CircularProgressIndicator()
             Text("Memuat barang untuk kasir…")
         }
     }
-    state.products.filter { it.stock > 0 }.forEach { product ->
+    state.products.filter { product ->
+        product.stock > 0 && (barcodeQuery.isBlank() || product.name.contains(barcodeQuery, true) || product.sku.contains(barcodeQuery, true) || product.barcode.orEmpty().contains(barcodeQuery, true))
+    }.forEach { product ->
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(14.dp),
