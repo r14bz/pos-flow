@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import id.posflow.android.admin.AdminViewModel
 import id.posflow.android.admin.AdminState
+import id.posflow.android.admin.AdminAccount
 import id.posflow.android.admin.AdminStore
 import id.posflow.android.auth.AuthViewModel
 import id.posflow.android.auth.NativeAppState
@@ -98,6 +99,8 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
     var password by rememberSaveable { mutableStateOf("") }
     var passwordTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteStoreTarget by remember { mutableStateOf<AdminStore?>(null) }
+    var deleteAccountTarget by remember { mutableStateOf<AdminAccount?>(null) }
+    var accountConfirm by rememberSaveable { mutableStateOf("") }
     androidx.compose.runtime.LaunchedEffect(Unit) { adminViewModel.loadDirectory() }
 
     Column(
@@ -135,6 +138,9 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
                             OutlinedButton(onClick = { adminViewModel.setSuspended(account.userId, !account.suspended) }, modifier = Modifier.weight(1f), enabled = !state.loading) {
                                 Text(if (account.suspended) "Aktifkan" else "Tangguhkan")
                             }
+                        }
+                        OutlinedButton(onClick = { deleteAccountTarget = account; accountConfirm = "" }, modifier = Modifier.fillMaxWidth(), enabled = !state.loading) {
+                            Text("Hapus akun permanen")
                         }
                     }
                     account.stores.forEach { store ->
@@ -180,6 +186,34 @@ private fun AdminHomeScreen(viewModel: AuthViewModel, adminViewModel: AdminViewM
                 }, enabled = password.length >= 8 && !state.loading) { Text("Simpan") }
             },
             dismissButton = { TextButton(onClick = { passwordTarget = null; password = "" }) { Text("Batal") } }
+        )
+    }
+    deleteAccountTarget?.let { account ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteAccountTarget = null; accountConfirm = "" },
+            title = { Text("Hapus akun permanen?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Akun ${account.email} akan dihapus. Jika memiliki toko, tindakan ini juga dapat menghapus toko dan data transaksinya.")
+                    OutlinedTextField(
+                        value = accountConfirm,
+                        onValueChange = { accountConfirm = it },
+                        label = { Text("Ketik email akun untuk konfirmasi") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    adminViewModel.deleteAccount(account.userId, account.email)
+                    deleteAccountTarget = null
+                    accountConfirm = ""
+                }, enabled = !state.loading && account.email.isNotBlank() && accountConfirm.equals(account.email, ignoreCase = true)) {
+                    Text("Hapus akun")
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleteAccountTarget = null; accountConfirm = "" }) { Text("Batal") } }
         )
     }
     deleteStoreTarget?.let { store ->
