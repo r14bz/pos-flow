@@ -3,35 +3,54 @@
 Aplikasi Android native terpisah dari web app, dibangun dengan Kotlin, Jetpack Compose, dan Material 3. Aplikasi web pada root repository tetap dipertahankan.
 
 ## Status
-Fondasi proyek Android awal. UI login adalah kerangka native; autentikasi Supabase dan modul bisnis belum diaktifkan. Jangan gunakan untuk transaksi produksi sampai integrasi dan pengujian selesai.
 
-## Persyaratan
-- Android Studio stabil yang mendukung Android Gradle Plugin di proyek.
+Fondasi native kini mencakup:
+- Form login yang memanggil Supabase Auth menggunakan email dan kata sandi.
+- Pemulihan sesi autentikasi saat aplikasi dibuka kembali.
+- Pembacaan keanggotaan melalui `store_memberships`, kemudian validasi toko aktif melalui `stores`.
+- Pemilihan toko dan tampilan awal untuk toko yang dipilih.
+- Tombol keluar yang mengakhiri sesi Supabase.
+- Workflow GitHub Actions untuk mencoba build debug APK saat ada perubahan Android.
+
+Build dan pengujian pada perangkat/emulator belum dikonfirmasi. Aplikasi belum siap untuk transaksi produksi; dashboard, inventaris, kasir, dan integrasi pembayaran native belum dibuat.
+
+## Persyaratan build
+
+- Android Studio stabil yang mendukung Android Gradle Plugin 8.10.1.
 - JDK 17.
+- Gradle 8.11.1.
 - Android SDK platform 35.
 - Perangkat/emulator Android API 26 atau lebih baru.
 
-Buka folder `android-native/` di Android Studio lalu tunggu Gradle Sync.
+Folder proyek Android: `android-native/`.
 
 ## Konfigurasi Supabase
-Jangan masukkan Supabase service-role key atau kredensial Midtrans ke aplikasi Android. Aplikasi nantinya menggunakan URL proyek dan publishable/anon key saja; RLS serta Edge Functions tetap menjadi batas keamanan di server.
 
-Nilai build lokal melalui environment:
+Jangan masukkan Supabase service-role key atau kredensial Midtrans ke aplikasi Android. Aplikasi menggunakan URL proyek dan publishable/anon key saja; RLS serta Edge Functions tetap menjadi batas keamanan di server.
+
+Sebelum menjalankan build yang akan digunakan untuk login, atur environment variables pada proses Gradle:
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 
-Nilai tersebut tidak disimpan di Git. Build awal dapat dibuka tanpa konfigurasi backend; integrasi akan diaktifkan setelah kontrak data diverifikasi.
+Contoh shell:
+```bash
+export SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
+export SUPABASE_PUBLISHABLE_KEY="YOUR_PUBLISHABLE_OR_ANON_KEY"
+gradle --no-daemon -p android-native :app:assembleDebug
+```
 
-## Arsitektur yang dituju
+Jangan commit file rahasia atau menaruh service-role/Midtrans key di kode Android. Build tanpa kedua variabel tersebut tetap dapat dikompilasi untuk pemeriksaan UI, tetapi login dinonaktifkan secara eksplisit.
+
+## Arsitektur
+
 - UI: Jetpack Compose + Material 3.
 - State: ViewModel, Kotlin coroutines/Flow.
-- Navigasi: Navigation Compose.
 - Backend: Supabase Auth, PostgREST, Realtime, dan Edge Functions.
 - Keamanan tenant: `store_memberships` + Row Level Security (RLS).
 - QRIS tetap melalui Edge Functions; rahasia merchant tidak boleh berada di aplikasi.
-- Kamera/barcode, Bluetooth printer, dan notifikasi ditambahkan setelah alur inti tervalidasi.
 
 ## Urutan migrasi fitur
+
 1. Login/sesi dan pemilihan toko.
 2. Dashboard.
 3. Inventaris dan pergerakan stok.
@@ -42,6 +61,7 @@ Nilai tersebut tidak disimpan di Git. Build awal dapat dibuka tanpa konfigurasi 
 8. Kamera barcode, printer Bluetooth, notifikasi, serta pengujian isolasi multi-toko.
 
 ## Skema backend yang diaudit
+
 Tabel utama: `profiles`, `stores`, `store_memberships`, `store_membership_roles`, `products`, `employees`, `sales`, `sale_items`, `stock_movements`, `store_qris_settings`, `store_qris_credentials`, `push_subscriptions`, `employee_session_revocations`, dan `admin_audit_logs`.
 
 Edge Functions yang ditemukan aktif:
