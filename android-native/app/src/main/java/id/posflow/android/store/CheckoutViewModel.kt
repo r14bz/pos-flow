@@ -60,7 +60,7 @@ class CheckoutViewModel : ViewModel() {
         _state.update { current ->
             val qty = current.quantities[product.id] ?: 0
             if (qty >= product.stock) {
-                current.copy(error = "Stok \${product.name} tidak mencukupi.")
+                current.copy(error = "Stok ${product.name} tidak mencukupi.")
             } else {
                 current.copy(
                     quantities = current.quantities + (product.id to qty + 1),
