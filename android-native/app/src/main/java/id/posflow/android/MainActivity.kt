@@ -1,8 +1,13 @@
 package id.posflow.android
 
 import android.os.Bundle
+import android.graphics.Bitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.MultiFormatWriter
+import coil.compose.AsyncImage
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardOptions
@@ -45,6 +51,8 @@ import id.posflow.android.auth.StoreChoice
 import id.posflow.android.store.StoreDataViewModel
 import id.posflow.android.store.CheckoutViewModel
 import id.posflow.android.store.CheckoutState
+import id.posflow.android.store.QrisViewModel
+import id.posflow.android.store.QrisPaymentState
 import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
@@ -233,6 +241,8 @@ private fun StoreDashboard(
     val data by storeDataViewModel.state.collectAsState()
     val checkoutViewModel: CheckoutViewModel = viewModel()
     val checkout by checkoutViewModel.state.collectAsState()
+    val qrisViewModel: QrisViewModel = viewModel()
+    val qris by qrisViewModel.state.collectAsState()
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     androidx.compose.runtime.LaunchedEffect(store.id) {
         storeDataViewModel.loadProducts(store.id)
@@ -284,7 +294,9 @@ private fun StoreDashboard(
                 storeId = store.id,
                 role = store.role,
                 state = checkout,
-                viewModel = checkoutViewModel
+                viewModel = checkoutViewModel,
+                qrisState = qris,
+                qrisViewModel = qrisViewModel
             )
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -350,7 +362,9 @@ private fun CashierScreen(
     storeId: String,
     role: String,
     state: CheckoutState,
-    viewModel: CheckoutViewModel
+    viewModel: CheckoutViewModel,
+    qrisState: QrisPaymentState,
+    qrisViewModel: QrisViewModel
 ) {
     val canCheckout = role in setOf("owner", "manager", "cashier")
     Text("Pilih barang", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -420,10 +434,70 @@ private fun CashierScreen(
     Button(
         onClick = { viewModel.checkout(storeId) },
         modifier = Modifier.fillMaxWidth(),
-        enabled = canCheckout && !state.loading && state.cartCount > 0
+        enabled = canCheckout && !state.loading && state.cartCount > 0 &&
+            !(qrisState.saleId != null && qrisState.status == "pending")
     ) {
         if (state.loading) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
         else Text("Selesaikan transaksi")
+    }
+    Text("Pembayaran QRIS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Pilih QRIS statis atau dinamis sesuai pengaturan toko.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = { qrisViewModel.create(storeId, state.quantities, state.discount, "static") },
+            modifier = Modifier.weight(1f),
+            enabled = canCheckout && !state.loading && !qrisState.loading && state.cartCount > 0 &&
+                !(qrisState.saleId != null && qrisState.status == "pending")
+        ) { Text("QRIS statis") }
+        OutlinedButton(
+            onClick = { qrisViewModel.create(storeId, state.quantities, state.discount, "dynamic") },
+            modifier = Modifier.weight(1f),
+            enabled = canCheckout && !state.loading && !qrisState.loading && state.cartCount > 0 &&
+                !(qrisState.saleId != null && qrisState.status == "pending")
+        ) { Text("QRIS dinamis") }
+    }
+    qrisState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+    qrisState.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
+    qrisState.saleId?.let { saleId ->
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Pembayaran QRIS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("No. transaksi: ${qrisState.receiptNo ?: saleId}")
+                Text("Total: Rp ${java.text.NumberFormat.getNumberInstance(java.util.Locale("id", "ID")).format(qrisState.total)}")
+                if (qrisState.mode == "dynamic" && !qrisState.qrString.isNullOrBlank()) {
+                    val qrBitmap = remember(qrisState.qrString) {
+                        runCatching {
+                            val matrix = MultiFormatWriter().encode(qrisState.qrString, BarcodeFormat.QR_CODE, 640, 640)
+                            Bitmap.createBitmap(640, 640, Bitmap.Config.ARGB_8888).also { bitmap ->
+                                for (x in 0 until 640) for (y in 0 until 640) {
+                                    bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                                }
+                            }
+                        }.getOrNull()
+                    }
+                    qrBitmap?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "Kode QR pembayaran", modifier = Modifier.fillMaxWidth().height(240.dp)) }
+                } else if (qrisState.mode == "static" && !qrisState.qrUrl.isNullOrBlank()) {
+                    AsyncImage(model = qrisState.qrUrl, contentDescription = "Kode QRIS statis", modifier = Modifier.fillMaxWidth().height(240.dp))
+                }
+                Text("Status: ${qrisState.status ?: "menunggu pembayaran"}")
+                OutlinedButton(onClick = { qrisViewModel.refreshStatus() }, enabled = !qrisState.loading, modifier = Modifier.fillMaxWidth()) {
+                    Text("Periksa status pembayaran")
+                }
+                if (qrisState.mode == "static" && qrisState.status == "pending") {
+                    Text("Konfirmasi hanya setelah kasir memeriksa pembayaran di portal merchant.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { qrisViewModel.confirmStaticPayment() }, enabled = !qrisState.loading, modifier = Modifier.fillMaxWidth()) {
+                        Text("Konfirmasi setelah diverifikasi")
+                    }
+                }
+                if (qrisState.status == "paid" || qrisState.status == "cancelled") {
+                    OutlinedButton(onClick = {
+                        viewModel.clearCart()
+                        qrisViewModel.reset()
+                        viewModel.load(storeId, force = true)
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Mulai transaksi baru") }
+                }
+            }
+        }
     }
     if (!canCheckout) {
         Text("Akun dengan peran ini hanya dapat melihat stok; akses kasir tidak tersedia.", color = MaterialTheme.colorScheme.onSurfaceVariant)
