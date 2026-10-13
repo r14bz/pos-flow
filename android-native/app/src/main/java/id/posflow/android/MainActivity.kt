@@ -66,6 +66,8 @@ import id.posflow.android.store.ReportViewModel
 import id.posflow.android.store.ReportState
 import id.posflow.android.store.EmployeeViewModel
 import id.posflow.android.store.EmployeeState
+import id.posflow.android.store.StoreSettingsViewModel
+import id.posflow.android.store.StoreSettingsState
 import id.posflow.android.store.NativeProduct
 import id.posflow.android.ui.theme.PosFlowTheme
 
@@ -426,6 +428,8 @@ private fun StoreDashboard(
     val report by reportViewModel.state.collectAsState()
     val employeeViewModel: EmployeeViewModel = viewModel()
     val employees by employeeViewModel.state.collectAsState()
+    val settingsViewModel: StoreSettingsViewModel = viewModel()
+    val settings by settingsViewModel.state.collectAsState()
     val canManageEmployees = store.allRoles.contains("owner")
     var page by rememberSaveable(store.id) { mutableStateOf("Stok") }
     var showProductEditor by rememberSaveable { mutableStateOf(false) }
@@ -437,7 +441,10 @@ private fun StoreDashboard(
         storeDataViewModel.loadProducts(store.id)
         checkoutViewModel.load(store.id)
         reportViewModel.load(store.id)
-        if (canManageEmployees) employeeViewModel.load(store.id)
+        if (canManageEmployees) {
+            employeeViewModel.load(store.id)
+            settingsViewModel.load(store.id)
+        }
     }
 
     Column(
@@ -496,7 +503,7 @@ private fun StoreDashboard(
                 modifier = Modifier.fillMaxWidth().padding(6.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                (if (canManageEmployees) listOf("Stok", "Kasir", "Laporan", "Karyawan") else listOf("Stok", "Kasir", "Laporan")).forEach { tab ->
+                (if (canManageEmployees) listOf("Stok", "Kasir", "Laporan", "Karyawan", "Pengaturan") else listOf("Stok", "Kasir", "Laporan")).forEach { tab ->
                     if (page == tab) {
                         Button(onClick = { page = tab }, modifier = Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(tab, maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                     } else {
@@ -518,6 +525,8 @@ private fun StoreDashboard(
             ReportScreen(storeId = store.id, state = report, viewModel = reportViewModel)
         } else if (page == "Karyawan" && canManageEmployees) {
             EmployeeScreen(storeId = store.id, state = employees, viewModel = employeeViewModel)
+        } else if (page == "Pengaturan" && canManageEmployees) {
+            StoreSettingsScreen(storeId = store.id, state = settings, viewModel = settingsViewModel)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 SummaryCard("Jenis barang", data.products.size.toString(), Modifier.weight(1f))
@@ -834,6 +843,40 @@ private fun saleStatusLabel(status: String): String = when (status) {
     "pending" -> "Menunggu pembayaran"
     "cancelled" -> "Dibatalkan"
     else -> status
+}
+
+@Composable
+private fun StoreSettingsScreen(storeId: String, state: StoreSettingsState, viewModel: StoreSettingsViewModel) {
+    Text("Pengaturan toko", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("Konfigurasi QRIS untuk toko ini. Kredensial merchant disimpan terenkripsi di server dan tidak ditampilkan kembali.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("Mode QRIS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("static" to "Statis", "dynamic" to "Dinamis", "both" to "Keduanya").forEach { (value, label) ->
+            if (state.mode == value) Button(onClick = { viewModel.setMode(value) }, modifier = Modifier.weight(1f)) { Text(label, maxLines = 1) }
+            else OutlinedButton(onClick = { viewModel.setMode(value) }, modifier = Modifier.weight(1f)) { Text(label, maxLines = 1) }
+        }
+    }
+    OutlinedTextField(value = state.merchantName, onValueChange = viewModel::setMerchantName, label = { Text("Nama merchant (tampilan)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.saving)
+    if (state.mode == "static" || state.mode == "both") {
+        OutlinedTextField(value = state.staticPath, onValueChange = viewModel::setStaticPath, label = { Text("Path file QRIS di bucket store-qris") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.saving)
+        Text("Unggah gambar QRIS terlebih dahulu ke bucket privat store-qris. Path harus diawali ID toko, misalnya ID_TOKO/qris.png.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (state.mode == "dynamic" || state.mode == "both") {
+        OutlinedTextField(value = state.merchantId, onValueChange = viewModel::setMerchantId, label = { Text("ID merchant Midtrans") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.saving)
+        OutlinedTextField(value = state.serverKey, onValueChange = viewModel::setServerKey, label = { Text("Server Key (kosongkan jika tidak mengganti)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.saving, visualTransformation = PasswordVisualTransformation())
+        Text("Status koneksi: " + if (state.dynamicStatus == "connected") "Terhubung" else "Belum terhubung", style = MaterialTheme.typography.bodyMedium)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.Checkbox(checked = state.production, onCheckedChange = viewModel::setProduction, enabled = !state.saving)
+            Text("Gunakan environment produksi")
+        }
+        Text("Untuk pengujian, biarkan Sandbox/produksi sesuai dengan pasangan Merchant ID dan Server Key Anda.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+    state.notice?.takeUnless { it.startsWith("loaded:") }?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
+    Button(onClick = { viewModel.save(storeId) }, modifier = Modifier.fillMaxWidth(), enabled = !state.loading && !state.saving) {
+        if (state.saving) CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp) else Text("Simpan pengaturan QRIS")
+    }
+    OutlinedButton(onClick = { viewModel.load(storeId, force = true) }, modifier = Modifier.fillMaxWidth(), enabled = !state.loading && !state.saving) { Text("Muat ulang pengaturan") }
 }
 
 @Composable
