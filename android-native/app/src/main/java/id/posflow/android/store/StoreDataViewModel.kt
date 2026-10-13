@@ -4,8 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import id.posflow.android.data.SupabaseClientProvider
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.filter.eq
 import io.github.jan.supabase.postgrest.result.decodeList
+import io.github.jan.supabase.postgrest.result.decodeAs
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -33,6 +37,7 @@ data class StoreDataState(
     val loading: Boolean = false,
     val products: List<NativeProduct> = emptyList(),
     val error: String? = null,
+    val notice: String? = null,
     val lastLoaded: Long? = null
 ) {
     val lowStockCount: Int get() = products.count { it.stock <= it.minStock }
@@ -44,7 +49,7 @@ class StoreDataViewModel : ViewModel() {
     val state = _state.asStateFlow()
     private var loadedStoreId: String? = null
 
-    fun loadProducts(storeId: String, force: Boolean = false) {
+    fun adjustStock(storeId: String, productId: String, delta: Int, note: String) {\n        if (delta == 0) {\n            _state.update { it.copy(error = "Perubahan stok tidak boleh nol.") }\n            return\n        }\n        viewModelScope.launch {\n            _state.update { it.copy(loading = true, error = null, notice = null) }\n            try {\n                SupabaseClientProvider.client.postgrest.rpc(\n                    "adjust_stock",\n                    buildJsonObject {\n                        put("p_store_id", storeId)\n                        put("p_product_id", productId)\n                        put("p_qty_delta", delta)\n                        put("p_note", note.trim())\n                    }\n                ).decodeAs<Int>()\n                loadedStoreId = null\n                _state.update { it.copy(loading = false, notice = "Perubahan stok berhasil disimpan.", error = null) }\n                loadProducts(storeId, force = true)\n            } catch (error: Exception) {\n                _state.update { it.copy(loading = false, error = error.message?.take(240) ?: "Perubahan stok gagal disimpan.") }\n            }\n        }\n    }\n\n    fun clearNotice() {\n        _state.update { it.copy(notice = null) }\n    }\n\n    fun loadProducts(storeId: String, force: Boolean = false) {
         if (_state.value.loading) return
         if (!force && loadedStoreId == storeId && _state.value.lastLoaded != null) return
 
