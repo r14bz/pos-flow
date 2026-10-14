@@ -1,6 +1,6 @@
 {
   "appId": "id.posflow.app",
-  "appName": "POS Flow",
+  "appName": "SEMAR",
   "webDir": "dist",
   "android": {
     "allowMixedContent": false
