@@ -796,7 +796,7 @@ private fun ReportScreen(storeId: String, state: ReportState, viewModel: ReportV
         OutlinedTextField(value = startDate, onValueChange = { startDate = it.take(10).filter { ch -> ch.isDigit() || ch == '-' } }, label = { Text("Dari tanggal") }, modifier = Modifier.weight(1f), singleLine = true)
         OutlinedTextField(value = endDate, onValueChange = { endDate = it.take(10).filter { ch -> ch.isDigit() || ch == '-' } }, label = { Text("Sampai tanggal") }, modifier = Modifier.weight(1f), singleLine = true)
     }
-    TextButton(onClick = { startDate = ""; endDate = "" }, modifier = Modifier.align(Alignment.End)) { Text("Hapus filter") }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextButton(onClick = { startDate = ""; endDate = "" }) { Text("Hapus filter") } }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         SummaryCard("Transaksi", filteredSales.size.toString(), Modifier.weight(1f))
         SummaryCard("Menunggu", filteredSales.count { it.status == "pending" }.toString(), Modifier.weight(1f))
