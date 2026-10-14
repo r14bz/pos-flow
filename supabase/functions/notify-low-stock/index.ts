@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   if (!body.store_id || !body.product_id) return json({ error: 'store_id dan product_id wajib diisi.' }, 400)
 
   const { data: member } = await admin.from('store_memberships').select('role').eq('store_id', body.store_id).eq('user_id', authData.user.id).maybeSingle()
-  if (!member || !['owner','manager','inventory'].includes(member.role)) return json({ error: 'Akses notifikasi ditolak.' }, 403)
+  if (!member || !['owner','manager','inventory','cashier'].includes(member.role)) return json({ error: 'Akses notifikasi ditolak.' }, 403)
   const { data: product, error: productError } = await admin.from('products').select('id,name,stock,min_stock,unit,store_id').eq('id', body.product_id).eq('store_id', body.store_id).maybeSingle()
   if (productError || !product) return json({ error: 'Barang tidak ditemukan.' }, 404)
   if (Number(product.stock) > Number(product.min_stock)) return json({ sent: 0, reason: 'Stock is above the minimum.' })
