@@ -1872,14 +1872,19 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
 .accent-theme-block { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); }
 
 /* Follow-up refinements: stable page changes, centered notification sheet, native text sizing. */
-/* Avoid forced page-transition animations that flash in Android WebView. */
-.page-transition-enter { animation: none !important; }
+/* Gentle content transition: opacity-first, with minimal movement to avoid WebView flashing. */
+.page-content { animation: semar-page-enter 220ms cubic-bezier(.2,.75,.25,1) both; }
+@keyframes semar-page-enter {
+  from { opacity: .94; transform: translate3d(0, 3px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.page-transition-enter { animation: semar-page-enter 220ms cubic-bezier(.2,.75,.25,1) both; }
 
 /* Notification panel behaves like a small modal sheet and blurs the app behind it. */
 .notification-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 9998;
   display: block;
   width: 100%;
   height: 100%;
@@ -1896,7 +1901,7 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
   top: clamp(68px, 10vh, 104px);
   left: 50%;
   right: auto;
-  z-index: 91;
+  z-index: 9999;
   width: min(335px, calc(100vw - 24px));
   max-height: calc(100dvh - 92px);
   overflow-x: hidden;
@@ -1980,7 +1985,7 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
 
 /* A computed +1px text bump is applied to text-bearing nodes only in the native app. */
 html[data-platform="capacitor"] .app-shell [data-native-font-bump] {
-  font-size: calc(var(--native-font-base-size) + 1px) !important;
+  font-size: calc(var(--native-font-base-size) + 4px) !important;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -1988,3 +1993,26 @@ html[data-platform="capacitor"] {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+
+
+/* Store identity is editable directly and its copy action stays aligned with the field. */
+.store-code-input-row { display: flex; align-items: stretch; gap: 7px; min-width: 0; }
+.store-code-input-row input { flex: 1 1 auto; width: 0; min-width: 0; }
+.store-code-copy-button { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+.settings-store-actions-row { display: flex; align-items: stretch; flex-wrap: wrap; gap: 9px; grid-column: 1 / -1; margin-top: 8px; }
+.settings-store-actions-row > button { flex: 1 1 150px; justify-content: center; margin: 0 !important; }
+.settings-store-actions-row .button-primary { color: #fff; background: linear-gradient(135deg, #087956, #10936d); border-color: #0b875f; }
+@media (max-width: 420px) {
+  .settings-store-actions-row { gap: 7px; }
+  .settings-store-actions-row > button { flex-basis: 130px; padding-left: 9px; padding-right: 9px; }
+  .store-code-copy-button { padding-left: 9px; padding-right: 9px; }
+}
+
+/* The Total Toko card keeps its green surface but uses high-contrast white text. */
+.kpi-total-stores .kpi-top,
+.kpi-total-stores .kpi-value,
+.kpi-total-stores .kpi-foot,
+.kpi-total-stores .kpi-shortcut-hint,
+.kpi-total-stores .kpi-top > span:first-child,
+.kpi-total-stores .kpi-foot > span { color: #fff !important; opacity: 1 !important; }
+.kpi-total-stores .kpi-icon { color: #fff !important; background: rgba(255,255,255,.16) !important; }
