@@ -1186,3 +1186,52 @@ input, select, textarea { color: var(--ink); }
 .theme-options button.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
 .auth-form input:focus, .form-stack input:focus, .form-stack select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline:3px solid var(--accent-soft); outline-offset:2px; }
+
+
+/* SEMAR interaction polish: consistent motion for web and Capacitor */
+@media (prefers-reduced-motion: no-preference) {
+  :root { scroll-behavior: smooth; }
+  button, a, input, select, textarea, .card, .panel, .modal-card, .notification-item,
+  .sidebar, .main-content, .auth-form-card, .auth-role-button {
+    transition: color .18s ease, background-color .18s ease, border-color .18s ease,
+      box-shadow .22s ease, transform .22s cubic-bezier(.2,.75,.25,1), opacity .18s ease;
+  }
+  button:active:not(:disabled) { transform: scale(.985); }
+  .auth-form-card { animation: semar-enter .36s cubic-bezier(.2,.75,.25,1) both; }
+  .auth-role-button:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .notification-popover { transform-origin: top right; animation: semar-pop .2s ease-out both; }
+  .notification-item { animation: semar-enter .24s ease both; }
+  .modal-backdrop { animation: semar-fade .16s ease both; }
+  .modal-card { animation: semar-enter .24s cubic-bezier(.2,.75,.25,1) both; }
+}
+@keyframes semar-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes semar-pop { from { opacity: 0; transform: translateY(-5px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes semar-fade { from { opacity: 0; } to { opacity: 1; } }
+.auth-role-choices { display:flex; flex-direction:column; gap:12px; margin:22px 0 16px; }
+.auth-role-button { min-height:72px; display:flex; align-items:center; justify-content:flex-start; gap:12px; text-align:left; padding:14px 16px; }
+.auth-role-button > span { display:flex; flex:1; flex-direction:column; gap:4px; }
+.auth-role-button strong { font-size:13px; }
+.auth-role-button small { font-size:11px; font-weight:400; opacity:.78; }
+.auth-choice-links { margin:14px 0 18px; }
+.auth-back-button, .auth-forgot-link { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; border:0; background:transparent; color:var(--accent); padding:12px 8px; cursor:pointer; font-weight:700; }
+.auth-reset-panel { display:flex; flex-direction:column; gap:9px; margin-top:18px; padding:14px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); }
+.auth-reset-panel p { margin:0; font-weight:700; }
+.auth-reset-panel label { display:flex; flex-direction:column; gap:6px; }
+.auth-reset-panel input { width:100%; border:1px solid var(--line-strong); border-radius:10px; padding:11px 12px; color:var(--ink); background:var(--surface); }
+.auth-reset-panel small { color:var(--muted); line-height:1.5; }
+.notification-head-actions { display:flex; align-items:center; gap:7px; }
+.notification-head-actions button { display:inline-flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--accent); padding:5px; cursor:pointer; font-size:11px; font-weight:700; }
+.notification-item.is-read { opacity:.68; }
+.notification-item.is-unread { background:var(--accent-pale); }
+.notification-item-content { min-width:0; flex:1; }
+.notification-item-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
+.notification-item-actions button { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); padding:6px 8px; cursor:pointer; font-size:11px; font-weight:600; }
+.notification-item-actions button:first-child { border-color:var(--accent-soft); color:var(--accent); }
+@media (max-width: 600px) {
+  .auth-role-button { min-height:68px; }
+  .notification-head-actions button span { display:none; }
+  .notification-item-actions button { padding:7px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+}
