@@ -21,7 +21,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@capacitor-community/bluetooth-le": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
