@@ -1259,3 +1259,27 @@ input, select, textarea { transition: border-color var(--motion-fast) var(--moti
 .page-transition-enter { animation: semar-page-enter .32s var(--motion-ease) both; }
 @keyframes semar-page-enter { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
 
+
+
+/* SEMAR smooth interaction layer: web and Capacitor */
+:root { --semar-motion-fast:150ms; --semar-motion:230ms; --semar-motion-slow:360ms; --semar-ease:cubic-bezier(.2,.75,.25,1); }
+html { scroll-behavior:smooth; }
+body, button, input, select, textarea, a, [role="button"] { -webkit-tap-highlight-color:transparent; }
+button, a, input, select, textarea, .icon-button, .nav-item, .store-switcher, .notification-item, .kpi-card, .product-card, .modal-card, .auth-form-card, .auth-role-button, .sidebar, .toast, .dropdown-menu, .notification-popover {
+ transition:color var(--semar-motion-fast) var(--semar-ease), background-color var(--semar-motion-fast) var(--semar-ease), border-color var(--semar-motion-fast) var(--semar-ease), box-shadow var(--semar-motion) var(--semar-ease), opacity var(--semar-motion) var(--semar-ease), transform var(--semar-motion) var(--semar-ease);
+}
+button:not(:disabled):active, [role="button"]:active, .nav-item:active { transform:scale(.985); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:3px solid var(--accent-soft); outline-offset:2px; }
+.auth-form-card { animation:semar-card-in var(--semar-motion-slow) var(--semar-ease) both; }
+.auth-role-choices { animation:semar-slide-in var(--semar-motion-slow) var(--semar-ease) both; }
+.app-main, .main-content, .page-content, .dashboard-content { animation:semar-page-in var(--semar-motion) var(--semar-ease) both; }
+.modal-backdrop { animation:semar-fade-in var(--semar-motion-fast) ease-out both; }
+.modal-card { animation:semar-card-in var(--semar-motion) var(--semar-ease) both; }
+.toast, .notification-item { animation:semar-slide-in var(--semar-motion) var(--semar-ease) both; }
+.notification-item.is-read { opacity:.72; }
+.notification-item.is-unread { box-shadow:inset 3px 0 0 var(--accent); }
+@keyframes semar-fade-in { from { opacity:0; } to { opacity:1; } }
+@keyframes semar-page-in { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
+@keyframes semar-slide-in { from { opacity:0; transform:translateX(8px); } to { opacity:1; transform:translateX(0); } }
+@keyframes semar-card-in { from { opacity:0; transform:translateY(12px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
