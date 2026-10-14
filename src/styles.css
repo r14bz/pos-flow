@@ -1896,7 +1896,7 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
   backdrop-filter: blur(4px);
   cursor: default;
 }
-.topbar .notification-popover {
+.notification-popover {
   position: fixed;
   top: clamp(68px, 10vh, 104px);
   left: 50%;
