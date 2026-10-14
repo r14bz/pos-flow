@@ -4,11 +4,11 @@ import { resolve } from 'node:path'
 
 const iconPaths = [
   ['resources/icon.png', 0.80],
-  ['public/icons/icon-192.png', 0.82],
-  ['public/icons/icon-512.png', 0.82],
-  ['public/icons/icon-maskable-512.png', 0.72],
-  ['public/icons/apple-touch-icon.png', 0.82],
-  ['public/icons/favicon-64.png', 0.82],
+  ['public/icons/icon-192.png', 0.96],
+  ['public/icons/icon-512.png', 0.96],
+  ['public/icons/icon-maskable-512.png', 0.88],
+  ['public/icons/apple-touch-icon.png', 0.96],
+  ['public/icons/favicon-64.png', 0.96],
 ]
 const background = { r: 12, g: 134, b: 98, alpha: 1 }
 
