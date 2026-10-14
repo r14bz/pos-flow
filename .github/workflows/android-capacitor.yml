@@ -6,13 +6,14 @@ on:
     paths:
       - "src/**"
       - "public/**"
+      - "resources/**"
       - "index.html"
       - "package.json"
       - "capacitor.config.ts"
       - "vite.config.js"
       - ".github/workflows/android-capacitor.yml"
   push:
-    branches: [feature/capacitor-android]
+    branches: [main, feature/capacitor-android]
   workflow_dispatch:
 
 permissions:
@@ -66,6 +67,9 @@ jobs:
 
       - name: Generate Android project
         run: npx cap add android
+
+      - name: Generate launcher icons from provided brand icon
+        run: npm run android:icons
 
       - name: Sync Capacitor assets
         run: npx cap sync android
