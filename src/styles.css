@@ -1697,3 +1697,54 @@ input, select, textarea,
     font-size: 12px !important;
   }
 }
+
+
+/* Latest requested SEMAR refinements */
+.topbar-brand-banner {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 190px;
+  overflow: hidden;
+}
+.topbar-brand-banner .brand-lockup { width: 100%; min-width: 0; }
+.topbar-brand-banner .brand-logo {
+  height: 42px !important;
+  max-width: 100%;
+  border-radius: 7px;
+}
+@media (max-width: 640px) {
+  .topbar-brand-banner { max-width: 145px; }
+  .topbar-brand-banner .brand-logo { height: 34px !important; }
+}
+.cashier-barcode-input > .button,
+.cashier-camera-button {
+  color: #fff !important;
+  background: linear-gradient(135deg, #087956, #10936d) !important;
+  border-color: #0b875f !important;
+}
+.cashier-barcode-input > .button:hover,
+.cashier-camera-button:hover {
+  color: #fff !important;
+  background: linear-gradient(135deg, #076c51, #087956) !important;
+}
+.checkout-methods { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.mobile-inventory-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--accent);
+  background: var(--surface);
+  font-size: 11px !important;
+  font-weight: 700;
+}
+.mobile-inventory-edit svg { flex: 0 0 auto; }
+.transaction-history-table th {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
