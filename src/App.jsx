@@ -265,6 +265,7 @@ function App() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState(() => { try { return JSON.parse(localStorage.getItem('semar-read-notifications') || '[]') } catch { return [] } })
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -732,10 +733,27 @@ function App() {
     const low = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
     const recent = sales.filter(s => jakartaDateKey(s.created_at) === todayISO() && s.status === 'paid')
     return [
-      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti' })),
-      ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis' }] : []),
+      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}-${p.stock}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti', action: 'inventory', actionLabel: 'Lihat stok' })),
+      ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis', action: 'reports', actionLabel: 'Lihat laporan' }] : []),
     ]
   }, [products, sales])
+
+  const markNotificationRead = (id) => {
+    setReadNotificationIds(previous => {
+      const next = previous.includes(id) ? previous : [...previous, id]
+      try { localStorage.setItem('semar-read-notifications', JSON.stringify(next.slice(-300))) } catch { /* storage may be unavailable */ }
+      return next
+    })
+  }
+  const markAllNotificationsRead = () => {
+    const ids = notifications.map(item => item.id)
+    setReadNotificationIds(previous => {
+      const next = [...new Set([...previous, ...ids])].slice(-300)
+      try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch { /* storage may be unavailable */ }
+      return next
+    })
+  }
+  const unreadNotificationCount = notifications.filter(item => !readNotificationIds.includes(item.id)).length
 
   const categories = useMemo(() => ['Semua', ...new Set(products.map(p => p.category).filter(Boolean))], [products])
   const filteredProducts = useMemo(() => products.filter(p => {
@@ -1429,7 +1447,7 @@ function App() {
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
         {!isCashierPage && <button className="install-button" onClick={installApp}><DownloadCloud size={16} /><span>Install app</span></button>}
-        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={notifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{notifications.length} pembaruan</small></div><button onClick={() => setNotificationOpen(false)}><X size={16} /></button></div>{notifications.length ? notifications.map(n => <div className="notification-item" key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small></div></div>) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
+        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={unreadNotificationCount > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{unreadNotificationCount} belum dibaca</small></div><div className="notification-head-actions">{unreadNotificationCount > 0 && <button onClick={markAllNotificationsRead} title="Tandai semua sudah dibaca"><CheckCheck size={15} /><span>Tandai dibaca</span></button>}<button aria-label="Tutup notifikasi" onClick={() => setNotificationOpen(false)}><X size={16} /></button></div></div>{notifications.length ? notifications.map(n => { const isRead = readNotificationIds.includes(n.id); return <div className={`notification-item ${isRead ? 'is-read' : 'is-unread'}`} key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div className="notification-item-content"><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small><div className="notification-item-actions"><button onClick={() => { markNotificationRead(n.id); navigate(n.action || 'dashboard') }}><ArrowRight size={14} /> {n.actionLabel || 'Buka'}</button>{!isRead && <button onClick={() => markNotificationRead(n.id)}><Check size={14} /> Tandai dibaca</button>}</div></div></div> }) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
         <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
       {loadingData && <div className="sync-banner"><span className="spinner spinner-dark" /> Memperbarui data toko…</div>}
       <div className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
