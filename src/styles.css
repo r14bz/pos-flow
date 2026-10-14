@@ -1283,3 +1283,112 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes semar-slide-in { from { opacity:0; transform:translateX(8px); } to { opacity:1; transform:translateX(0); } }
 @keyframes semar-card-in { from { opacity:0; transform:translateY(12px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
+
+
+/* SEMAR usability pass: readable typography, aligned dashboard panels and compact scanner UI */
+body { font-size: 15px; }
+@media (max-width: 640px) { body { font-size: 14px; } }
+
+.kpi-card-action {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  border-top: 3px solid var(--accent);
+}
+.kpi-card-action:nth-child(2) { border-top-color: var(--blue); }
+.kpi-card-action:nth-child(3) { border-top-color: var(--purple); }
+.kpi-card-action:nth-child(4) { border-top-color: var(--amber); }
+.kpi-card-action.is-clickable:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 12px 28px rgba(21,57,43,.11); }
+.kpi-shortcut-hint { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--accent); font-size: 12px; font-weight: 700; }
+.kpi-card-action .kpi-foot { font-size: 12px; line-height: 1.4; }
+.kpi-card-action .kpi-top { font-size: 13px; line-height: 1.35; }
+
+.dashboard-grid-secondary > .panel { min-width: 0; overflow: hidden; }
+.dashboard-grid-secondary > .panel > .panel-heading {
+  min-width: 0;
+  padding: 18px 20px 10px;
+  margin: 0;
+  box-sizing: border-box;
+  align-items: center;
+}
+.dashboard-grid-secondary > .panel > .panel-heading > div { min-width: 0; }
+.dashboard-grid-secondary > .panel > .panel-heading h3,
+.dashboard-grid-secondary > .panel > .panel-heading p { overflow-wrap: anywhere; }
+.dashboard-grid-secondary .transaction-list,
+.dashboard-grid-secondary .restock-list { padding: 0 20px 12px; box-sizing: border-box; }
+.dashboard-grid-secondary .transaction-row { min-width: 0; }
+.dashboard-grid-secondary .transaction-main { min-width: 0; }
+.dashboard-grid-secondary .restock-row { min-width: 0; }
+
+.transaction-search-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.transaction-search-input { width: min(100%, 520px); min-height: 44px; }
+.transaction-search-input input { min-width: 0; flex: 1; font-size: 14px; }
+.transaction-search-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+.cashier-scan-box { min-height: 300px; padding: 28px 24px; }
+.cashier-scan-icon { width: 60px; height: 60px; border-radius: 16px; margin-bottom: 13px; }
+.cashier-scan-icon svg { width: 30px; height: 30px; }
+.cashier-scan-box > p { margin-bottom: 16px; }
+.cashier-camera-button { margin-top: 14px; }
+.cashier-product-suggestions { max-height: min(300px, 38vh); overflow-y: auto; }
+.cashier-product-suggestion { padding: 7px; gap: 8px; }
+.cashier-product-suggestion .product-visual { width: 36px; height: 36px; }
+
+.modal-scanner { width: min(100%, 580px); max-height: min(90svh, 760px); }
+.modal-scanner .modal-body { padding: 14px; }
+.scanner-modal-content { width: 100%; gap: 0; }
+.scanner-view { width: 100%; height: min(58svh, 500px); min-height: 300px; aspect-ratio: 4 / 3; }
+.scanner-view video { object-fit: cover; }
+.scanner-empty strong { font-size: 15px; }
+.scanner-empty p { font-size: 13px; }
+.scanner-instruction { font-size: 13px; }
+
+.transaction-search-bar,
+.cashier-scan-box,
+.kpi-card-action { transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease; }
+
+/* Raise small utility text to a comfortable minimum across desktop, PWA and Capacitor. */
+:where(.eyebrow, .breadcrumb, .topbar-date, .nav-item, .store-switcher,
+.panel-heading p, .kpi-top, .kpi-foot, .kpi-trend, .transaction-main strong,
+.transaction-main small, .transaction-amount small, .restock-main strong,
+.restock-main small, .cashier-header p, .cashier-scan-box > p,
+.cashier-product-suggestion-main strong, .cashier-product-suggestion-main small,
+.form-stack label, .form-stack input, .form-stack select, .modal-header p,
+.label-helper, .form-helper, .role-info-box p, .data-table th, .data-table td,
+.receipt-link, .table-footer, .mobile-bottom-nav button small,
+.mobile-inventory-name strong, .mobile-inventory-name small, .mobile-inventory-name span,
+.mobile-inventory-bottom small, .mobile-inventory-bottom strong, .page-title-row p,
+.page-title-actions .button, .payment-legend > div, .chart-summary span,
+.chart-x-labels, .chart-y-labels, .empty-state p, .cashier-status,
+.notification-item p, .notification-item small, .settings-long-copy, .settings-footnote) {
+  font-size: max(12px, .92em);
+}
+input, select, textarea, .form-stack input, .form-stack select,
+.search-input input, .cashier-barcode-input input { font-size: max(14px, 1em); }
+button, .button { line-height: 1.35; }
+@media (max-width: 640px) {
+  .cashier-scan-box { min-height: 0; padding: 22px 16px; }
+  .cashier-scan-icon { width: 54px; height: 54px; }
+  .transaction-search-bar { align-items: stretch; flex-direction: column; padding: 12px; gap: 8px; }
+  .transaction-search-input { width: 100%; }
+  .transaction-search-count { font-size: 12px; }
+  .dashboard-grid-secondary > .panel > .panel-heading { padding: 16px 16px 10px !important; }
+  .dashboard-grid-secondary .transaction-list,
+  .dashboard-grid-secondary .restock-list { padding-left: 16px; padding-right: 16px; }
+  .modal-scanner { width: calc(100vw - 24px); max-height: 88svh; }
+  .modal-scanner .modal-header { padding: 14px 16px 11px; }
+  .modal-scanner .modal-body { padding: 12px; }
+  .scanner-view { height: min(61svh, 460px); min-height: 260px; aspect-ratio: 3 / 4; }
+  .kpi-card-action { padding: 12px; }
+  .kpi-card-action .kpi-top { font-size: 12px; }
+  .kpi-card-action .kpi-foot { font-size: 12px; }
+  .kpi-shortcut-hint { font-size: 12px; margin-top: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card-action.is-clickable:hover { transform: none; }
+}
