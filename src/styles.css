@@ -1298,11 +1298,15 @@ body { font-size: 15px; }
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  border-top: 3px solid var(--accent);
+  border-top: 1px solid var(--line);
 }
-.kpi-card-action:nth-child(2) { border-top-color: var(--blue); }
-.kpi-card-action:nth-child(3) { border-top-color: var(--purple); }
-.kpi-card-action:nth-child(4) { border-top-color: var(--amber); }
+.kpi-card-action:nth-child(1) { background: linear-gradient(135deg, #087956, #10936d); border-color: #0b875f; color: #fff; }
+.kpi-card-action:nth-child(1) .kpi-top, .kpi-card-action:nth-child(1) .kpi-value, .kpi-card-action:nth-child(1) .kpi-foot, .kpi-card-action:nth-child(1) .kpi-shortcut-hint { color: #fff; }
+.kpi-card-action:nth-child(1) .kpi-icon { background: rgba(255,255,255,.16); color: #fff; }
+.kpi-card-action:nth-child(1) .kpi-trend { color: #c7f5de; }
+.kpi-card-action:nth-child(2) { background: var(--accent-pale); border-color: var(--accent-soft); }
+.kpi-card-action:nth-child(3) .kpi-icon { background: var(--accent-soft); color: var(--accent); }
+.kpi-card-action:nth-child(4) .kpi-icon { background: var(--amber-soft); color: var(--amber); }
 .kpi-card-action.is-clickable:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 12px 28px rgba(21,57,43,.11); }
 .kpi-shortcut-hint { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--accent); font-size: 12px; font-weight: 700; }
 .kpi-card-action .kpi-foot { font-size: 12px; line-height: 1.4; }
@@ -1392,3 +1396,60 @@ button, .button { line-height: 1.35; }
 @media (prefers-reduced-motion: reduce) {
   .kpi-card-action.is-clickable:hover { transform: none; }
 }
+
+
+/* Follow-up refinements: readable mobile text, compact cashier, centered square scanner */
+@media (max-width: 640px) {
+  body { font-size: 16px !important; }
+  .auth-story-footer, .auth-story-footer span { font-size: 13px !important; line-height: 1.45; }
+  .inventory-stat small { font-size: 13px !important; line-height: 1.35; }
+  .inventory-stat strong { font-size: 17px !important; }
+  .inventory-stat-hint { font-size: 12px !important; }
+  .kpi-card-action .kpi-top, .kpi-card-action .kpi-foot, .kpi-shortcut-hint { font-size: 13px !important; }
+  .cashier-scan-box { min-height: 0 !important; padding: 16px 12px !important; gap: 5px; }
+  .cashier-scan-icon { width: 42px !important; height: 42px !important; margin-bottom: 4px !important; border-radius: 12px !important; }
+  .cashier-scan-icon svg { width: 24px !important; height: 24px !important; }
+  .cashier-scan-box h2 { font-size: 19px; margin: 0 0 3px !important; }
+  .cashier-scan-box > p { font-size: 13px !important; line-height: 1.4; margin: 0 0 8px !important; }
+  .cashier-barcode-form { width: 100%; }
+  .cashier-barcode-input { min-height: 42px; }
+  .cashier-barcode-input input { font-size: 14px !important; }
+  .cashier-barcode-input .button { padding: 8px 10px; font-size: 13px; }
+  .cashier-product-suggestions { max-height: min(220px, 30svh) !important; }
+  .cashier-product-suggestion { grid-template-columns: 30px minmax(0,1fr) auto 14px !important; padding: 6px !important; gap: 6px !important; }
+  .cashier-product-suggestion .product-visual { width: 30px !important; height: 30px !important; }
+  .cashier-product-suggestion-main strong { font-size: 13px !important; }
+  .cashier-product-suggestion-main small, .cashier-product-suggestion-stock small { font-size: 11px !important; }
+  .cashier-product-suggestion-stock strong { font-size: 12px !important; }
+  .inventory-stat { padding: 11px !important; }
+  .inventory-stat-icon { width: 34px !important; height: 34px !important; }
+  .inventory-low-stock-notice { font-size: 13px; }
+}
+@media (max-width: 900px) {
+  .modal-backdrop:has(.modal-scanner) { align-items: center !important; justify-content: center !important; padding: 12px !important; }
+  .modal-backdrop:has(.modal-scanner) .modal-scanner {
+    width: min(92vw, 420px) !important;
+    max-width: 420px !important;
+    max-height: 88svh !important;
+    height: auto !important;
+    border-radius: 18px !important;
+    border: 1px solid var(--line) !important;
+    margin: auto !important;
+    animation: semar-card-in .18s ease-out both !important;
+  }
+  .modal-backdrop:has(.modal-scanner) .modal-scanner .modal-header { flex: 0 0 auto; padding: 12px 14px 9px !important; }
+  .modal-backdrop:has(.modal-scanner) .modal-scanner .modal-body { padding: 10px !important; overflow-y: auto; }
+  .modal-backdrop:has(.modal-scanner) .scanner-view {
+    width: min(100%, 360px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 0 auto !important;
+  }
+  .modal-backdrop:has(.modal-scanner) .scanner-view video { width: 100%; height: 100%; object-fit: cover; }
+}
+.inventory-stat-action { width: 100%; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.inventory-stat-action:hover, .inventory-stat-action.is-active { border-color: var(--accent); background: var(--accent-pale); box-shadow: 0 6px 18px rgba(13,138,103,.1); }
+.inventory-stat-hint { color: var(--accent); font-size: 11px; font-weight: 700; margin-top: 2px; }
+.inventory-low-stock-active { outline: 2px solid var(--accent); outline-offset: 2px; }
+.inventory-low-stock-notice { display: flex; align-items: center; gap: 8px; padding: 10px 16px; color: var(--accent-dark); background: var(--accent-pale); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 12px; }
