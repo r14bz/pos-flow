@@ -162,18 +162,17 @@ function Modal({ title, subtitle, onClose, children, width = 'normal', noClose =
   </div>
 }
 
-function BarcodeScanner({ onDetected, onClose }) {
+function BarcodeScanner({ onDetected }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [cameraError, setCameraError] = useState('')
-  const [manualCode, setManualCode] = useState('')
   const [scanning, setScanning] = useState(false)
   useEffect(() => {
     let active = true
     let interval
     const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Browser ini tidak mendukung akses kamera. Masukkan barcode secara manual.'); return }
-      if (!('BarcodeDetector' in window)) { setCameraError('Pemindai otomatis belum didukung browser ini. Masukkan barcode secara manual.'); return }
+      if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Browser ini tidak mendukung akses kamera. Periksa dukungan kamera pada perangkat.'); return }
+      if (!('BarcodeDetector' in window)) { setCameraError('Pemindai otomatis belum didukung browser ini. Coba gunakan browser yang lebih baru.'); return }
       try {
         const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] })
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
@@ -184,12 +183,11 @@ function BarcodeScanner({ onDetected, onClose }) {
           if (!active || !videoRef.current || videoRef.current.readyState < 2) return
           try { const results = await detector.detect(videoRef.current); if (results?.[0]?.rawValue) { active = false; onDetected(results[0].rawValue) } } catch {}
         }, 300)
-      } catch (err) { setCameraError(err?.message?.includes('Permission') ? 'Izin kamera ditolak. Izinkan akses kamera atau masukkan barcode manual.' : 'Kamera tidak dapat dibuka. Masukkan barcode secara manual.') }
+      } catch (err) { setCameraError(err?.message?.includes('Permission') ? 'Izin kamera ditolak. Izinkan akses kamera pada pengaturan browser/perangkat.' : 'Kamera tidak dapat dibuka. Masukkan barcode secara manual.') }
     }
     start()
     return () => { active = false; clearInterval(interval); streamRef.current?.getTracks().forEach(track => track.stop()) }
   }, [onDetected])
-  const submitManual = (e) => { e.preventDefault(); if (manualCode.trim()) onDetected(manualCode.trim()) }
   return <div className="scanner-modal-content">
     <div className="scanner-view">
       <video ref={videoRef} playsInline muted />
@@ -197,7 +195,6 @@ function BarcodeScanner({ onDetected, onClose }) {
       {!scanning && <div className="scanner-empty"><div className="scanner-empty-icon"><ScanLine size={31} /></div><strong>Kamera pemindai</strong><p>{cameraError || 'Menyiapkan kamera belakang…'}</p></div>}
       {scanning && <div className="scanner-instruction">Arahkan barcode ke dalam bingkai</div>}
     </div>
-    <form className="manual-barcode-form" onSubmit={submitManual}><label>Atau masukkan kode secara manual</label><div className="search-input"><Barcode size={17} /><input autoFocus value={manualCode} onChange={e => setManualCode(e.target.value)} placeholder="Ketik barcode / SKU…" /><button type="submit" className="button button-primary button-sm">Gunakan</button></div></form>
   </div>
 }
 
@@ -214,8 +211,8 @@ function EmptyState({ icon: Icon = Package, title, text, action }) {
   return <div className="empty-state"><div className="empty-state-icon"><Icon size={24} /></div><strong>{title}</strong><p>{text}</p>{action}</div>
 }
 
-function KPI({ icon: Icon, label, value, trend, trendLabel, tone = 'green', trendDown = false }) {
-  return <div className="kpi-card"><div className="kpi-top"><span>{label}</span><span className={`kpi-icon ${tone}`}><Icon size={19} /></span></div><strong className="kpi-value">{value}</strong><div className="kpi-foot">{trend !== undefined && <span className={`kpi-trend ${trendDown ? 'down' : 'up'}`}>{trendDown ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{trend}</span>}<span>{trendLabel}</span></div></div>
+function KPI({ icon: Icon, label, value, trend, trendLabel, tone = 'green', trendDown = false, onClick }) {
+  return <button type="button" className={`kpi-card kpi-card-action ${onClick ? 'is-clickable' : ''}`} onClick={onClick} disabled={!onClick} aria-label={onClick ? `${label}: buka detail` : undefined}><div className="kpi-top"><span>{label}</span><span className={`kpi-icon ${tone}`}><Icon size={19} /></span></div><strong className="kpi-value">{value}</strong><div className="kpi-foot">{trend !== undefined && <span className={`kpi-trend ${trendDown ? 'down' : 'up'}`}>{trendDown ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{trend}</span>}<span>{trendLabel}</span></div>{onClick && <span className="kpi-shortcut-hint">Buka detail <ArrowRight size={13} /></span>}</button>
 }
 
 function SalesChart({ sales }) {
@@ -267,8 +264,7 @@ function App() {
   const [employees, setEmployees] = useState([])
   const [loadingData, setLoadingData] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const [globalSearch, setGlobalSearch] = useState('')
+  const [transactionSearch, setTransactionSearch] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [readNotificationIds, setReadNotificationIds] = useState(() => { try { return JSON.parse(localStorage.getItem('semar-read-notifications') || '[]') } catch { return [] } })
   const [modal, setModal] = useState(null)
@@ -1149,6 +1145,15 @@ function App() {
           else if (destination.includes('reports')) navigate('reports')
           else navigate('dashboard')
         })
+        await PushNotifications.createChannel({
+          id: 'semar-alerts-v1',
+          name: 'Notifikasi SEMAR',
+          description: 'Peringatan stok menipis dan pembaruan toko',
+          importance: 5,
+          sound: 'default',
+          vibration: true,
+          visibility: 1
+        })
         await PushNotifications.register()
         showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
       } catch (err) {
@@ -1221,10 +1226,10 @@ function App() {
   const renderDashboard = () => <>
     <PageTitle eyebrow="RINGKASAN BISNIS" title={`Selamat ${new Date().getHours() < 11 ? 'pagi' : new Date().getHours() < 15 ? 'siang' : new Date().getHours() < 19 ? 'sore' : 'malam'}, ${displayName.split(' ')[0]}`} description="Pantau performa toko Anda hari ini." actions={<button className="button button-secondary" onClick={() => { setReportDate(todayISO()); navigate('reports') }}><CalendarDays size={16} /> Laporan hari ini</button>} />
     <div className="kpi-grid">
-      <KPI icon={Wallet} label="Penjualan hari ini" value={idr(todayRevenue)} trend={demo ? '12,8%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : `${todaySales.length} transaksi berhasil`} tone="green" />
-      <KPI icon={ShoppingBag} label="Total transaksi" value={todaySales.length.toLocaleString('id-ID')} trend={demo ? '8,2%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : 'transaksi hari ini'} tone="blue" />
-      <KPI icon={Package} label="Produk terdaftar" value={products.length.toLocaleString('id-ID')} trendLabel={`${products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')} total unit stok`} tone="purple" />
-      <KPI icon={AlertTriangle} label="Stok menipis" value={lowStockProducts.length.toLocaleString('id-ID')} trendLabel="Perlu restock segera" tone="amber" trendDown />
+      <KPI icon={Wallet} label="Penjualan hari ini" value={idr(todayRevenue)} trend={demo ? '12,8%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : `${todaySales.length} transaksi berhasil`} tone="green" onClick={() => { setReportDate(todayISO()); navigate('reports') }} />
+      <KPI icon={ShoppingBag} label="Total transaksi" value={todaySales.length.toLocaleString('id-ID')} trend={demo ? '8,2%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : 'transaksi hari ini'} tone="blue" onClick={() => navigate('transactions')} />
+      <KPI icon={Package} label="Produk terdaftar" value={products.length.toLocaleString('id-ID')} trendLabel={`${products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')} total unit stok`} tone="purple" onClick={() => navigate('inventory')} />
+      <KPI icon={AlertTriangle} label="Stok menipis" value={lowStockProducts.length.toLocaleString('id-ID')} trendLabel="Perlu restock segera" tone="amber" trendDown onClick={() => navigate('inventory')} />
     </div>
     <div className="dashboard-grid dashboard-grid-primary">
       <section className="panel chart-panel"><div className="panel-heading"><div><h3>Tren penjualan</h3><p>Performa tujuh hari terakhir</p></div><div className="chart-legend"><span /> Penjualan</div></div><SalesChart sales={sales} /><div className="chart-summary"><div><span>Total penjualan hari ini</span><strong>{idr(todayRevenue)}</strong></div><div className="chart-summary-divider" /><div><span>Rata-rata transaksi</span><strong>{idr(todaySales.length ? todayRevenue / todaySales.length : 0)}</strong></div></div></section>
@@ -1288,7 +1293,6 @@ function App() {
             </div>}
           </form>
           <button className="button button-secondary cashier-camera-button" type="button" onClick={() => showScanner('cashier')}><Camera size={18} /> Buka kamera scanner</button>
-          <div className="cashier-scan-note"><Search size={15} /><span>Daftar produk tetap disembunyikan. Hasil hanya muncul sesuai kata yang sedang dicari.</span></div>
         </div>
       </section>
       <aside className="cart-panel"><div className="cart-heading"><div><h2><ShoppingCart size={19} /> Keranjang</h2><p>{cart.reduce((a, i) => a + i.qty, 0)} item dipilih</p></div><button className="text-action" disabled={!cart.length} onClick={() => { setCart([]); setCartDiscount('0'); setCashReceived('') }}>Kosongkan</button></div>
@@ -1335,14 +1339,20 @@ function App() {
     }
   }
 
-  const renderTransactions = () => <>
-    <PageTitle eyebrow="RIWAYAT PENJUALAN" title="Transaksi" description="Lihat dan telusuri seluruh transaksi toko." actions={<button className="button button-secondary" onClick={() => { setReportDate(todayISO()); exportExcel('daily') }}><Download size={16} /> Ekspor Excel hari ini</button>} />
-    <section className="panel transactions-panel"><div className="panel-heading"><div><h3>Semua transaksi</h3><p>{sales.length} transaksi tercatat di toko ini</p></div><div className="transaction-filter-info"><span className="live-dot" /> Data terbaru</div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{sales.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
-      {!sales.length && <EmptyState icon={ReceiptText} title="Belum ada transaksi" text="Transaksi yang berhasil di kasir akan muncul di halaman ini." action={<button className="button button-primary button-sm" onClick={() => navigate('cashier')}>Buka kasir</button>} />}
-      <div className="table-footer"><span>Transaksi yang menunggu pembayaran QRIS tidak dihitung sebagai penjualan berhasil.</span><button className="text-action" onClick={() => navigate('reports')}>Lihat laporan <ArrowRight size={14} /></button></div>
-    </section>
-  </>
+  const renderTransactions = () => {
+    const term = transactionSearch.trim().toLocaleLowerCase('id-ID')
+    const filteredTransactions = sales.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).filter(s => !term || String(s.receipt_no || '').toLocaleLowerCase('id-ID').includes(term))
+    return <>
+      <PageTitle eyebrow="RIWAYAT PENJUALAN" title="Transaksi" description="Lihat dan telusuri seluruh transaksi toko." actions={<button className="button button-secondary" onClick={() => { setReportDate(todayISO()); exportExcel('daily') }}><Download size={16} /> Ekspor Excel hari ini</button>} />
+      <section className="panel transactions-panel"><div className="panel-heading"><div><h3>Semua transaksi</h3><p>{filteredTransactions.length} dari {sales.length} transaksi</p></div><div className="transaction-filter-info"><span className="live-dot" /> Data terbaru</div></div>
+        <div className="transaction-search-bar"><div className="search-input transaction-search-input"><Search size={18} /><input value={transactionSearch} onChange={e => setTransactionSearch(e.target.value)} placeholder="Cari berdasarkan nomor struk…" aria-label="Cari nomor struk transaksi" />{transactionSearch && <button type="button" aria-label="Hapus pencarian nomor struk" onClick={() => setTransactionSearch('')}><X size={16} /></button>}</div><span className="transaction-search-count">{filteredTransactions.length} hasil</span></div>
+        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{filteredTransactions.map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
+        {!sales.length && <EmptyState icon={ReceiptText} title="Belum ada transaksi" text="Transaksi yang berhasil di kasir akan muncul di halaman ini." action={<button className="button button-primary button-sm" onClick={() => navigate('cashier')}>Buka kasir</button>} />}
+        {sales.length > 0 && filteredTransactions.length === 0 && <EmptyState icon={Search} title="Nomor struk tidak ditemukan" text="Periksa kembali nomor struk atau hapus kata pencarian." action={<button className="button button-secondary button-sm" onClick={() => setTransactionSearch('')}>Hapus pencarian</button>} />}
+        <div className="table-footer"><span>Transaksi yang menunggu pembayaran QRIS tidak dihitung sebagai penjualan berhasil.</span><button className="text-action" onClick={() => navigate('reports')}>Lihat laporan <ArrowRight size={14} /></button></div>
+      </section>
+    </>
+  }
 
   const renderReports = () => {
     const gross = selectedReportSales.reduce((sum, s) => sum + Number(s.total || 0), 0)
@@ -1533,7 +1543,7 @@ function App() {
       <div className="sidebar-bottom"><div className="sync-status"><span className="sync-icon"><Cloud size={17} /></span><span><strong>{demo ? 'Mode demo aktif' : 'Cloud sync aktif'}</strong><small><i /> {demo ? 'Data contoh lokal' : 'Semua data tersinkron'}</small></span></div><div className="sidebar-user"><span className="user-avatar">{initials(displayName)}</span><div className="sidebar-user-details"><strong>{displayName}</strong><small>{roleLabel(currentRole)}{demo ? ' · Demo' : ''}</small></div><button className="icon-button logout-icon" onClick={signOut} aria-label="Keluar" title="Keluar"><LogOut size={17} /></button></div></div>
     </aside>
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
-      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
+      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         {!isCashierPage && <button className="install-button" onClick={installApp}><DownloadCloud size={16} /><span>Install app</span></button>}
         <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={unreadNotificationCount > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{unreadNotificationCount} belum dibaca · {notifications.length} total</small></div><div className="notification-head-actions">{unreadNotificationCount > 0 && <button className="notification-mark-all" onClick={markAllNotificationsRead}>Tandai semua dibaca</button>}<button aria-label="Tutup notifikasi" onClick={() => setNotificationOpen(false)}><X size={16} /></button></div></div>{notifications.length ? notifications.map(n => { const isRead = readNotificationIds.includes(n.id); return <div className={`notification-item ${isRead ? 'is-read' : 'is-unread'}`} key={n.id} onClick={() => markNotificationRead(n.id)} role="group" aria-label={`${n.title}: ${isRead ? 'sudah dibaca' : 'belum dibaca'}`}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div className="notification-item-content"><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small><div className="notification-item-actions">{n.action && <button className="text-action" onClick={(event) => { event.stopPropagation(); markNotificationRead(n.id); navigate(n.action) }}>{n.actionLabel || 'Buka'} <ArrowRight size={13} /></button>}{!isRead && <button className="notification-read-action" onClick={(event) => { event.stopPropagation(); markNotificationRead(n.id) }}><CheckCheck size={13} /> Tandai sudah dibaca</button>}</div></div></div>}) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
         <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
@@ -1607,7 +1617,7 @@ function App() {
 
     {modal?.type === 'stores' && <Modal title="Pilih toko aktif" subtitle="Dashboard menampilkan data untuk toko yang dipilih." onClose={() => setModal(null)}><div className="store-picker-list">{stores.map(s => <button key={s.id} className={s.id === storeId ? 'active' : ''} onClick={() => { switchStore(s.id); setModal(null) }}><span className="store-avatar">{initials(s.name)}</span><span><strong>{s.name}</strong><small>{s.city || 'Lokasi belum diatur'} · {roleLabel(s.role)}</small></span>{s.id === storeId ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}</button>)}</div>{isStoreOwner && <button className="button button-secondary button-wide" onClick={() => { setModal(null); setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</Modal>}
 
-    {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Gunakan kamera belakang atau input kode secara manual." onClose={() => setModal(null)} width="small"><BarcodeScanner onDetected={onBarcodeDetected} onClose={() => setModal(null)} /></Modal>}
+    {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Posisikan barcode di dalam bingkai kamera." onClose={() => setModal(null)} width="scanner"><BarcodeScanner onDetected={onBarcodeDetected} /></Modal>}
 
     {modal?.type === 'qris' && <Modal title="Pembayaran QRIS" subtitle={modal.demo ? 'Simulasi demo — tidak ada transaksi uang nyata' : `Struk ${modal.receipt_no || ''}`} onClose={() => { setModal(null); setQrisState(null) }} width="small"><div className="qris-modal-content"><div className="qris-amount-label">Total yang harus dibayar</div><strong className="qris-amount">{idr(modal.total)}</strong>{modal.demo ? <div className="demo-qr-placeholder"><QrCode size={72} /><strong>QRIS DEMO</strong><small>Bukan kode pembayaran asli</small></div> : modal.qr_url ? <div className="qris-generated-image"><img src={modal.qr_url} alt="Kode QRIS pembayaran" /></div> : <div className="demo-qr-placeholder"><QrCode size={62} /><strong>Menunggu kode QR</strong></div>}{modal.merchant_display_name && <p className="qris-merchant-name">{modal.merchant_display_name}</p>}<div className="qris-waiting"><span className="spinner spinner-dark" /><div><strong>{modal.demo ? 'Simulasi pembayaran' : modal.qris_mode === 'static' ? 'QRIS statis — konfirmasi manual' : 'Menunggu pembayaran pelanggan'}</strong><small>{modal.demo ? 'Klik tombol di bawah untuk simulasi sukses.' : modal.qris_mode === 'static' ? 'Pelanggan memasukkan nominal sesuai total. Kasir wajib memeriksa status pembayaran pada portal merchant sebelum mengonfirmasi.' : 'Status akan diperbarui otomatis setelah webhook pembayaran terverifikasi.'}</small></div></div>{modal.demo && <button className="button button-primary button-wide" onClick={confirmDemoQris}><CheckCircle2 size={17} /> Simulasikan pembayaran berhasil</button>}{!modal.demo && modal.qris_mode === 'static' && <button className="button button-primary button-wide" onClick={confirmStaticQris}><CheckCircle2 size={17} /> Saya sudah memeriksa pembayaran</button>}{!modal.demo && modal.qris_mode !== 'static' && <div className="qris-info-box"><Clock3 size={16} /><span>Jangan tutup halaman ini sebelum pembayaran dikonfirmasi oleh penyedia QRIS.</span></div>}<button className="button button-secondary button-wide" onClick={() => setModal(null)}>Tutup</button></div></Modal>}
 
