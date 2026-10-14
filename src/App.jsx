@@ -749,9 +749,9 @@ function App() {
     const recent = sales.filter(s => jakartaDateKey(s.created_at) === todayISO() && s.status === 'paid')
     return [
       ...low.slice(0, 5).map(p => ({ id: `low-${p.id}-${p.stock}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti', action: 'inventory', actionLabel: 'Lihat stok' })),
-      ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis', action: 'reports', actionLabel: 'Lihat laporan' }] : []),
+      ...(recent.length ? [{ id: `daily-report-${storeId}`, type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis', action: 'reports', actionLabel: 'Lihat laporan' }] : []),
     ]
-  }, [products, sales])
+  }, [products, sales, storeId])
 
   const markNotificationRead = (id) => {
     setReadNotificationIds(previous => {
