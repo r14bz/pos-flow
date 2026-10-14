@@ -1,0 +1,8 @@
+{
+  "appId": "id.posflow.app",
+  "appName": "POS Flow",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}
