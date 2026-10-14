@@ -68,10 +68,14 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
-      - name: Declare Android camera permission
+      - name: Declare Android camera and Bluetooth permissions
         run: |
           sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA" />' android/app/src/main/AndroidManifest.xml
-
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
       - name: Generate launcher icons from provided brand icon
         run: npm run android:icons
 
