@@ -14,7 +14,7 @@ on:
       - "vite.config.js"
       - ".github/workflows/android-capacitor.yml"
   push:
-    branches: [main, feature/capacitor-android]
+    branches: [main, feature/capacitor-android, fix/capacitor-camera-receipt]
   workflow_dispatch:
 
 permissions:
