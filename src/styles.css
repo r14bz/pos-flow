@@ -1244,3 +1244,18 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline:3px so
 @keyframes semar-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes semar-modal-in { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes semar-pop-in { from { opacity: 0; transform: translateY(-5px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Consistent, restrained motion across web and Capacitor surfaces. */
+:root { --motion-fast: 160ms; --motion-smooth: 240ms; --motion-ease: cubic-bezier(.22,.75,.25,1); }
+button, a, input, select, textarea, .card, .kpi-card, .product-card, .cashier-product-card, .notification-item {
+  transition-timing-function: var(--motion-ease);
+}
+button, a { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a { transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease); }
+button:not(:disabled):active { transform: scale(.985); }
+input, select, textarea { transition: border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease); }
+.notification-item { cursor: pointer; }
+.notification-item:focus-within { outline: 2px solid var(--accent-soft); outline-offset: -2px; }
+.page-transition-enter { animation: semar-page-enter .32s var(--motion-ease) both; }
+@keyframes semar-page-enter { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+
