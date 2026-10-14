@@ -2065,3 +2065,13 @@ html[data-platform="capacitor"] .auth-screen .auth-role-button strong { font-siz
   .auth-form-logo .brand-logo { height: 60px; }
   .auth-form-side { padding-top: 22px; }
 }
+
+@supports selector(details::details-content) {
+  .owner-store::details-content {
+    height: 0;
+    opacity: 0;
+    overflow: clip;
+    transition: height .25s cubic-bezier(.2,.75,.25,1), opacity .18s ease, content-visibility .25s allow-discrete;
+  }
+  .owner-store[open]::details-content { height: auto; opacity: 1; }
+}
