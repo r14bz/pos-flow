@@ -688,6 +688,16 @@ function App() {
     setDemo(false); setSession(null); setStores([]); setStoreId(''); setProducts([]); setSales([]); setEmployees([]); setCart([]); setPage('dashboard'); window.history.replaceState({}, '', '/')
   }
 
+  useEffect(() => {
+    const handleReceiptNavigation = (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'POSFLOW_RETURN_TO_CASHIER') return
+      setModal(null)
+      navigate('cashier')
+    }
+    window.addEventListener('message', handleReceiptNavigation)
+    return () => window.removeEventListener('message', handleReceiptNavigation)
+  }, [])
+
   const navigate = (next) => {
     if (next === 'cashier' && !canUseCashier) {
       showToast('Akses kasir tidak tersedia untuk akun ini. Hubungi pemilik toko jika memerlukan izin kasir.', 'error')
@@ -1039,9 +1049,9 @@ function App() {
   const printReceipt = (sale) => {
     if (!sale) return
     const items = sale.sale_items || []
-    const content = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Struk ${sale.receipt_no}</title><style>
-      *{box-sizing:border-box}body{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;width:280px;margin:0 auto;padding:12px}h1{font:700 18px Arial;text-align:center;margin:0}p{margin:3px 0;text-align:center}.line{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;gap:10px}.item{margin:8px 0}.item small{display:block;color:#555}.total{font-size:15px;font-weight:bold}.muted{color:#666;font-size:11px}@media print{body{width:auto;padding:0}@page{margin:5mm}}
-      </style></head><body><h1>${escapeHtml(currentStore?.name || 'SEMAR')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by SEMAR</p><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}</script></body></html>`
+    const content = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Struk ${sale.receipt_no}</title><style>
+      *{box-sizing:border-box}body{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;width:280px;margin:0 auto;padding:12px}h1{font:700 18px Arial;text-align:center;margin:0}p{margin:3px 0;text-align:center}.line{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;gap:10px}.item{margin:8px 0}.item small{display:block;color:#555}.total{font-size:15px;font-weight:bold}.muted{color:#666;font-size:11px}.receipt-actions{font:600 15px Arial;display:grid;gap:10px;width:min(100%,420px);margin:24px auto 12px}.receipt-actions button{border:0;border-radius:10px;padding:14px 16px;background:#08765f;color:white;font-weight:700;font-size:15px;min-height:48px}.receipt-actions .secondary{background:#fff;color:#153c34;border:1px solid #d5dedb}.receipt-actions .hint{text-align:center;font:12px Arial;color:#66736f;margin:0}@media print{body{width:auto;padding:0}.receipt-actions{display:none}@page{margin:5mm}}
+      </style></head><body><h1>${escapeHtml(currentStore?.name || 'SEMAR')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by SEMAR</p><div class="receipt-actions"><button onclick="returnToCashier()">← Kembali ke Kasir</button><button class="secondary" onclick="window.print()">Cetak Ulang Struk</button><p class="hint">Gunakan tombol ini untuk kembali ke halaman kasir.</p></div><script>function returnToCashier(){try{if(window.opener&&!window.opener.closed){window.opener.postMessage({type:'POSFLOW_RETURN_TO_CASHIER'},location.origin);window.close();return}}catch(e){}window.close()}window.onload=()=>{window.print()}</script></body></html>`
     const win = window.open('', '_blank', 'width=360,height=720')
     if (!win) { showToast('Izinkan pop-up untuk mencetak struk.', 'error'); return }
     win.document.open(); win.document.write(content); win.document.close()
