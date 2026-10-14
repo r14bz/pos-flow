@@ -17,6 +17,10 @@ import {
   paymentLabel, roleLabel
 } from './lib/demoData'
 import * as XLSX from 'xlsx'
+import { Capacitor } from '@capacitor/core'
+import { Printer as NativePrinter } from '@capgo/capacitor-printer'
+import { BleClient } from '@capacitor-community/bluetooth-le'
+import { PushNotifications } from '@capacitor/push-notifications'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
@@ -77,7 +81,7 @@ function Logo({ small = false, light = false }) {
 }
 
 function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -85,57 +89,56 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
   const [storeCode, setStoreCode] = useState('')
   const [username, setUsername] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotUsername, setForgotUsername] = useState('')
   const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName, storeCode, username }) }
+  const back = () => { setMode('choose'); setError(''); setForgotOpen(false) }
+  const requestOwnerReset = () => {
+    const message = `Halo Administrator SEMAR, saya lupa kata sandi. Username: ${forgotUsername || '(belum diisi)'}, email: ${email || '(belum diisi)'}. Mohon bantuan reset password.`
+    window.open(`https://wa.me/6289676707976?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+  }
   return <div className="auth-screen">
-    <section className="auth-story">
-      <div className="auth-story-inner">
-        <div className="auth-story-copy">
-          <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
-          <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
-          <p>Semua toko, transaksi, dan laporan dalam satu tempat. Lebih rapi untuk Anda, lebih cepat untuk pelanggan.</p>
-          <div className="auth-benefit-list">
-            <div><span><Cloud size={17} /></span><section><strong>Data tersinkron otomatis</strong><small>Update toko secara real-time</small></section></div>
-            <div><span><FileSpreadsheet size={17} /></span><section><strong>Laporan siap diunduh</strong><small>Rekap penjualan dalam Excel</small></section></div>
-            <div><span><ShieldCheck size={17} /></span><section><strong>Data terpisah dan aman</strong><small>Akses berbasis peran pengguna</small></section></div>
-          </div>
-        </div>
-        <div className="auth-story-footer"><span>© 2026 SEMAR</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div>
+    <section className="auth-story"><div className="auth-story-inner"><div className="auth-story-copy">
+      <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
+      <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
+      <p>Semua toko, transaksi, dan laporan dalam satu tempat. Lebih rapi untuk Anda, lebih cepat untuk pelanggan.</p>
+      <div className="auth-benefit-list">
+        <div><span><Cloud size={17} /></span><section><strong>Data tersinkron otomatis</strong><small>Update toko secara real-time</small></section></div>
+        <div><span><FileSpreadsheet size={17} /></span><section><strong>Laporan siap diunduh</strong><small>Rekap penjualan dalam Excel</small></section></div>
+        <div><span><ShieldCheck size={17} /></span><section><strong>Data terpisah dan aman</strong><small>Akses berbasis peran pengguna</small></section></div>
       </div>
-      <div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" />
-    </section>
-    <section className="auth-form-side">
-      <div className="auth-form-logo"><Logo /></div>
-      <div className="auth-form-card">
-        <div className="auth-form-heading">
-          <div className="eyebrow">RUANG KERJA ANDA</div>
-          <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
+    </div><div className="auth-story-footer"><span>© 2026 SEMAR</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div></div><div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" /></section>
+    <section className="auth-form-side"><div className="auth-form-logo"><Logo /></div><div className="auth-form-card">
+      {mode === 'choose' ? <>
+        <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>Masuk ke SEMAR</h2><p>Pilih jenis akun untuk melanjutkan.</p></div>
+        <div className="auth-role-choice">
+          <button type="button" className="button button-primary button-wide" onClick={() => { setMode('login'); setError('') }}><ShieldCheck size={18} /><span><strong>Login sebagai owner/pemilik</strong><small>Kelola toko dan bisnis Anda</small></span><ChevronRight size={18} /></button>
+          <button type="button" className="button button-secondary button-wide" onClick={() => { setMode('employee'); setError('') }}><Users size={18} /><span><strong>Login sebagai karyawan</strong><small>Masuk dengan ID toko dan username</small></span><ChevronRight size={18} /></button>
         </div>
+        <div className="auth-switch">Belum punya akun? <button type="button" onClick={() => { setMode('signup'); setError('') }}>Daftar</button></div>
+        <div className="auth-separator"><span /><small>ATAU COBA DULU</small><span /></div>
+        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
+        <p className="auth-footnote">Demo memakai data contoh dan tidak terhubung ke toko nyata.</p>
+      </> : <>
+        <button type="button" className="auth-back-button" onClick={back}><ArrowLeft size={16} /> Kembali ke pilihan login</button>
+        <div className="auth-form-heading"><div className="eyebrow">{mode === 'employee' ? 'AKSES KARYAWAN' : mode === 'signup' ? 'AKUN BARU' : 'AKSES PEMILIK'}</div><h2>{mode === 'employee' ? 'Login karyawan' : mode === 'signup' ? 'Daftarkan bisnis' : 'Login owner/pemilik'}</h2><p>{mode === 'employee' ? 'Gunakan ID toko dan akun yang diberikan pemilik.' : mode === 'signup' ? 'Buat akun untuk memulai dengan SEMAR.' : 'Masuk menggunakan email dan kata sandi.'}</p></div>
         <form onSubmit={submit} className="auth-form">
-          {mode === 'signup' && <>
-            <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
-            <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
-          </>}
+          {mode === 'signup' && <><label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label><label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label></>}
           {mode === 'employee' ? <>
-            <label>Kode toko (ID toko)<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" required /></label>
+            <label>ID toko<input value={storeCode} onChange={e => setStoreCode(e.target.value.toUpperCase())} placeholder="Kode toko dari pemilik" autoCapitalize="characters" required /></label>
             <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
           </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
-          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
           {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
-          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Masuk sebagai karyawan' : mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
+          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase agar login dan sinkronisasi aktif.</small></span></div>}
+          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Login sebagai karyawan' : mode === 'signup' ? 'Buat akun dan toko' : 'Login sebagai owner'}</button>
         </form>
-        {mode !== 'employee' && <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>}
-        <div className="auth-switch"><button onClick={() => { setMode(mode === 'employee' ? 'login' : 'employee'); setError('') }}>{mode === 'employee' ? 'Kembali ke login pemilik' : 'Login sebagai karyawan'}</button></div>
-        <div className="auth-separator"><span /> <small>ATAU COBA DULU</small> <span /></div>
-        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
-        <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
-      </div>
-      <div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div>
-    </section>
+        {mode === 'employee' ? <button type="button" className="auth-forgot-link" onClick={() => setForgotOpen(true)}>Lupa kata sandi?</button> : mode === 'login' ? <button type="button" className="auth-forgot-link" onClick={() => setForgotOpen(true)}>Lupa kata sandi?</button> : <div className="auth-switch">Sudah punya akun? <button type="button" onClick={() => { setMode('login'); setError('') }}>Login</button></div>}
+        {forgotOpen && <div className="auth-forgot-panel" role="dialog" aria-modal="true"><div className="auth-forgot-panel-card"><button type="button" className="auth-forgot-close" onClick={() => setForgotOpen(false)} aria-label="Tutup"><X size={17} /></button><h3>{mode === 'employee' ? 'Hubungi pemilik toko' : 'Bantuan reset kata sandi'}</h3>{mode === 'employee' ? <p>Untuk menjaga keamanan akun, silakan hubungi pemilik toko agar kata sandi Anda diatur ulang.</p> : <><p>Isi username dan email akun. WhatsApp akan terbuka dengan pesan permintaan reset yang sudah disiapkan.</p><label>Username<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} placeholder="Username Anda" /></label><label>Email akun<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" /></label><button type="button" className="button button-primary button-wide" onClick={requestOwnerReset}><Send size={16} /> Hubungi administrator via WhatsApp</button></>}</div></div>}
+      </>}
+    </div><div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div></section>
   </div>
 }
-
 function Modal({ title, subtitle, onClose, children, width = 'normal', noClose = false }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !noClose) onClose?.() }
@@ -258,6 +261,7 @@ function App() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState(() => { try { return JSON.parse(localStorage.getItem('semar-read-notifications') || '[]') } catch { return [] } })
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -725,10 +729,13 @@ function App() {
     const low = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
     const recent = sales.filter(s => jakartaDateKey(s.created_at) === todayISO() && s.status === 'paid')
     return [
-      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti' })),
+      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti', action: 'inventory', productId: p.id })),
       ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis' }] : []),
     ]
   }, [products, sales])
+  const unreadNotifications = notifications.filter(n => !readNotificationIds.includes(n.id))
+  const markNotificationRead = (id) => setReadNotificationIds(current => { const next = [...new Set([...current, id])]; try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch {} return next })
+  const markAllNotificationsRead = () => { const next = [...new Set([...readNotificationIds, ...notifications.map(n => n.id)])]; setReadNotificationIds(next); try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch {} }
 
   const categories = useMemo(() => ['Semua', ...new Set(products.map(p => p.category).filter(Boolean))], [products])
   const filteredProducts = useMemo(() => products.filter(p => {
@@ -1049,41 +1056,108 @@ function App() {
     showToast('File Excel berhasil diunduh.')
   }
 
-  const printReceipt = (sale) => {
+  const printReceipt = async (sale) => {
     if (!sale) return
     const items = sale.sale_items || []
     const content = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Struk ${sale.receipt_no}</title><style>
       *{box-sizing:border-box}body{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;width:280px;margin:0 auto;padding:12px}h1{font:700 18px Arial;text-align:center;margin:0}p{margin:3px 0;text-align:center}.line{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;gap:10px}.item{margin:8px 0}.item small{display:block;color:#555}.total{font-size:15px;font-weight:bold}.muted{color:#666;font-size:11px}.receipt-actions{font:600 15px Arial;display:grid;gap:10px;width:min(100%,420px);margin:24px auto 12px}.receipt-actions button{border:0;border-radius:10px;padding:14px 16px;background:#08765f;color:white;font-weight:700;font-size:15px;min-height:48px}.receipt-actions .secondary{background:#fff;color:#153c34;border:1px solid #d5dedb}.receipt-actions .hint{text-align:center;font:12px Arial;color:#66736f;margin:0}@media print{body{width:auto;padding:0}.receipt-actions{display:none}@page{margin:5mm}}
       </style></head><body><h1>${escapeHtml(currentStore?.name || 'SEMAR')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by SEMAR</p><div class="receipt-actions"><button onclick="returnToCashier()">← Kembali ke Kasir</button><button class="secondary" onclick="window.print()">Cetak Ulang Struk</button><p class="hint">Gunakan tombol ini untuk kembali ke halaman kasir.</p></div><script>function returnToCashier(){try{if(window.opener&&!window.opener.closed){window.opener.postMessage({type:'POSFLOW_RETURN_TO_CASHIER'},location.origin);window.close();return}}catch(e){}window.close()}window.onload=()=>{window.print()}</script></body></html>`
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await NativePrinter.printHtml({ name: `SEMAR-${sale.receipt_no || 'Struk'}`, html: content })
+        return
+      } catch (error) {
+        showToast(error?.message || 'Dialog cetak tidak dapat dibuka di perangkat ini.', 'error')
+        return
+      }
+    }
     const win = window.open('', '_blank', 'width=360,height=720')
     if (!win) { showToast('Izinkan pop-up untuk mencetak struk.', 'error'); return }
     win.document.open(); win.document.write(content); win.document.close()
   }
 
   const enablePush = async () => {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi.', 'error')
+    if (demo) {
+      if ('Notification' in window && Notification.permission !== 'denied') {
+        const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+        if (permission === 'granted') new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' })
+      }
+      showToast('Notifikasi demo diaktifkan untuk sesi ini.')
+      return
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        let permission = await PushNotifications.checkPermissions()
+        if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions()
+        if (permission.receive !== 'granted') return showToast('Izin notifikasi Android belum diberikan.', 'error')
+        await PushNotifications.removeAllListeners()
+        await PushNotifications.addListener('registration', async ({ value: token }) => {
+          try {
+            const { error } = await supabase.from('fcm_tokens').upsert({
+              user_id: session.user.id,
+              store_id: storeId || null,
+              token,
+              platform: 'android',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'token' })
+            if (error) throw error
+            showToast('Notifikasi Android berhasil diaktifkan.')
+          } catch (err) {
+            showToast(err?.message || 'Token notifikasi gagal disimpan.', 'error')
+          }
+        })
+        await PushNotifications.addListener('registrationError', (event) => {
+          showToast(event?.error || 'Pendaftaran notifikasi Firebase gagal.', 'error')
+        })
+        await PushNotifications.register()
+        showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
+      } catch (err) {
+        showToast(err?.message || 'Gagal mengaktifkan notifikasi Android.', 'error')
+      }
+      return
+    }
+
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi web.', 'error')
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return showToast('Izin notifikasi belum diberikan.', 'error')
-    if (demo) { new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' }); showToast('Notifikasi perangkat diaktifkan untuk sesi ini.'); return }
     const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY
-    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push di latar belakang.', 'error')
+    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push web di latar belakang.', 'error')
     try {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) })
       const json = subscription.toJSON()
       const { error } = await supabase.from('push_subscriptions').upsert({ user_id: session.user.id, store_id: storeId || null, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }, { onConflict: 'endpoint' })
       if (error) throw error
-      showToast('Push notification berhasil diaktifkan.')
-    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification.', 'error') }
+      showToast('Push notification web berhasil diaktifkan.')
+    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification web.', 'error') }
   }
 
   const openPrinter = async () => {
-    if (!navigator.bluetooth) return showToast('Web Bluetooth tidak tersedia di browser ini. Coba Chrome Android atau gunakan tombol Cetak struk.', 'error')
     try {
+      if (Capacitor.isNativePlatform()) {
+        await BleClient.initialize({ androidNeverForLocation: true })
+        const enabled = await BleClient.isEnabled()
+        if (!enabled) {
+          await BleClient.requestEnable()
+        }
+        const device = await BleClient.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        })
+        showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Perangkat ini harus mendukung BLE agar bisa ditemukan di sini.`, 'info')
+        return
+      }
+      if (!navigator.bluetooth) {
+        showToast('Browser ini tidak mendukung Web Bluetooth. Buka SEMAR dalam aplikasi Android untuk mencari perangkat BLE.', 'error')
+        return
+      }
       const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] })
-      showToast(`Printer ${device.name || 'Bluetooth'} terdeteksi. Kompatibilitas cetak bergantung pada profil BLE printer.`, 'info')
-      // A printer picker is intentionally not treated as proof of printing support.
-    } catch (err) { if (err?.name !== 'NotFoundError') showToast(err?.message || 'Gagal menghubungkan printer.', 'error') }
+      showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Pastikan printer mendukung BLE.`, 'info')
+    } catch (err) {
+      if (err?.name === 'NotFoundError' || err?.message?.toLowerCase?.().includes('cancel')) return
+      showToast(err?.message || 'Bluetooth tidak dapat diakses. Periksa izin Bluetooth dan lokasi pada pengaturan Android.', 'error')
+    }
   }
 
   const selectedReportSales = sales.filter(s => {
@@ -1302,7 +1376,7 @@ function App() {
   const renderSettings = () => <>
     <PageTitle eyebrow="KONFIGURASI" title="Pengaturan toko" description="Kelola informasi toko, perangkat, dan integrasi yang digunakan." />
     <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><form className="settings-form-grid" onSubmit={saveStoreInfo}><label>Nama toko<input value={storeInfoDraft.name} onChange={e => setStoreInfoDraft(current => ({ ...current, name: e.target.value }))} readOnly={!isStoreOwner || demo} required /></label><label>Kota / lokasi<input value={storeInfoDraft.city} onChange={e => setStoreInfoDraft(current => ({ ...current, city: e.target.value }))} readOnly={!isStoreOwner || demo} placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.store_code || currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label>{isStoreOwner && !demo && <div className="settings-save-row"><button type="submit" className="button button-secondary" disabled={storeInfoBusy || (storeInfoDraft.name === (currentStore?.name || '') && storeInfoDraft.city === (currentStore?.city || ''))}>{storeInfoBusy ? <span className="spinner" /> : <Check size={16} />} Simpan informasi toko</button></div>}</form><div className="settings-note"><LockKeyhole size={15} /> Nama toko dan lokasi dapat diubah oleh pemilik toko. ID toko tetap menjadi kode unik untuk login karyawan.</div><label className="qris-field">Kode toko untuk login karyawan<input value={storeCodeDraft} onChange={e => setStoreCodeDraft(e.target.value.toUpperCase())} readOnly={!isStoreOwner || demo} onFocus={e => e.target.select()} placeholder="Contoh: KEDAI-001" /><small>Gunakan kode yang mudah diingat. Kode ini unik untuk setiap toko; ID internal tetap tidak berubah.</small></label>{isStoreOwner && !demo && <button className="button button-secondary" disabled={storeCodeBusy || storeCodeDraft === (currentStore?.store_code || '')} onClick={saveStoreCode}>{storeCodeBusy ? <span className="spinner" /> : <Check size={16} />} Simpan kode toko</button>}{isStoreOwner && <button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</section>
-      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak browser.</p></section>
+      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak sistem Android saat dibuka di aplikasi.</p></section>
       <section className="panel settings-section qris-settings-panel"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Atur metode pembayaran khusus toko aktif</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (qrisSavedSettings ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : qrisSavedSettings ? 'Terkonfigurasi' : 'Belum diatur'}</span></div>
         {demo ? <div className="settings-note"><KeyRound size={15} /> Mode demo tidak menyimpan kredensial merchant atau menerima pembayaran nyata. Keluar dari demo dan hubungkan Supabase untuk mengatur QRIS.</div> : <>
           <label className="qris-field">Metode QRIS yang digunakan<select value={qrisSettingsDraft.mode} onChange={e => setQrisSettingsDraft(v => ({ ...v, mode: e.target.value }))}><option value="static">QRIS statis</option><option value="dynamic">QRIS dinamis</option><option value="both">Keduanya (statis dan dinamis)</option></select></label>
@@ -1422,7 +1496,7 @@ function App() {
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
         {!isCashierPage && <button className="install-button" onClick={installApp}><DownloadCloud size={16} /><span>Install app</span></button>}
-        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={notifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{notifications.length} pembaruan</small></div><button onClick={() => setNotificationOpen(false)}><X size={16} /></button></div>{notifications.length ? notifications.map(n => <div className="notification-item" key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small></div></div>) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
+        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={unreadNotifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{unreadNotifications.length} belum dibaca · {notifications.length} total</small></div><div className="notification-head-actions">{unreadNotifications.length > 0 && <button type="button" onClick={markAllNotificationsRead}>Tandai semua dibaca</button>}<button onClick={() => setNotificationOpen(false)} aria-label="Tutup"><X size={16} /></button></div></div>{notifications.length ? notifications.map(n => { const isRead = readNotificationIds.includes(n.id); return <div className={`notification-item ${isRead ? 'is-read' : 'is-unread'}`} key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div className="notification-item-content"><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small><div className="notification-item-actions">{n.action && <button type="button" className="button button-primary button-xs" onClick={() => { markNotificationRead(n.id); setNotificationOpen(false); navigate(n.action); setStockSearch(products.find(p => p.id === n.productId)?.name || '') }}>Lihat stok <ArrowRight size={13} /></button>}{!isRead && <button type="button" className="notification-mark-read" onClick={() => markNotificationRead(n.id)}><CheckCheck size={13} /> Tandai dibaca</button>}</div></div></div> }) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
         <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
       {loadingData && <div className="sync-banner"><span className="spinner spinner-dark" /> Memperbarui data toko…</div>}
       <div className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
@@ -1498,7 +1572,7 @@ function App() {
 
     {modal?.type === 'qris' && <Modal title="Pembayaran QRIS" subtitle={modal.demo ? 'Simulasi demo — tidak ada transaksi uang nyata' : `Struk ${modal.receipt_no || ''}`} onClose={() => { setModal(null); setQrisState(null) }} width="small"><div className="qris-modal-content"><div className="qris-amount-label">Total yang harus dibayar</div><strong className="qris-amount">{idr(modal.total)}</strong>{modal.demo ? <div className="demo-qr-placeholder"><QrCode size={72} /><strong>QRIS DEMO</strong><small>Bukan kode pembayaran asli</small></div> : modal.qr_url ? <div className="qris-generated-image"><img src={modal.qr_url} alt="Kode QRIS pembayaran" /></div> : <div className="demo-qr-placeholder"><QrCode size={62} /><strong>Menunggu kode QR</strong></div>}{modal.merchant_display_name && <p className="qris-merchant-name">{modal.merchant_display_name}</p>}<div className="qris-waiting"><span className="spinner spinner-dark" /><div><strong>{modal.demo ? 'Simulasi pembayaran' : modal.qris_mode === 'static' ? 'QRIS statis — konfirmasi manual' : 'Menunggu pembayaran pelanggan'}</strong><small>{modal.demo ? 'Klik tombol di bawah untuk simulasi sukses.' : modal.qris_mode === 'static' ? 'Pelanggan memasukkan nominal sesuai total. Kasir wajib memeriksa status pembayaran pada portal merchant sebelum mengonfirmasi.' : 'Status akan diperbarui otomatis setelah webhook pembayaran terverifikasi.'}</small></div></div>{modal.demo && <button className="button button-primary button-wide" onClick={confirmDemoQris}><CheckCircle2 size={17} /> Simulasikan pembayaran berhasil</button>}{!modal.demo && modal.qris_mode === 'static' && <button className="button button-primary button-wide" onClick={confirmStaticQris}><CheckCircle2 size={17} /> Saya sudah memeriksa pembayaran</button>}{!modal.demo && modal.qris_mode !== 'static' && <div className="qris-info-box"><Clock3 size={16} /><span>Jangan tutup halaman ini sebelum pembayaran dikonfirmasi oleh penyedia QRIS.</span></div>}<button className="button button-secondary button-wide" onClick={() => setModal(null)}>Tutup</button></div></Modal>}
 
-    {modal?.type === 'receipt' && <Modal title="Detail transaksi" subtitle={modal.sale?.receipt_no} onClose={() => setModal(null)} width="small"><div className="receipt-detail"><div className="receipt-success"><span><CheckCircle2 size={25} /></span><strong>Transaksi {modal.sale?.status === 'paid' ? 'berhasil' : 'diperbarui'}</strong><small>{formatDate(modal.sale?.created_at, { year: 'numeric' })}</small></div><div className="receipt-number-box"><small>Nomor struk</small><strong>{modal.sale?.receipt_no || '—'}</strong><span>{paymentLabel(modal.sale?.payment_method)} · {modal.sale?.cashier_name || displayName}</span></div><div className="receipt-detail-items">{(modal.sale?.sale_items || []).map((item, i) => <div className="receipt-detail-item" key={item.id || `${item.product_id}-${i}`}><div><strong>{item.product_name || item.name || 'Barang'}</strong><small>{item.qty} × {idr(item.unit_price)}</small></div><strong>{idr(item.subtotal ?? item.qty * item.unit_price)}</strong></div>)}</div><div className="receipt-totals"><div><span>Subtotal</span><span>{idr(modal.sale?.subtotal ?? modal.sale?.total)}</span></div><div><span>Diskon</span><span>−{idr(modal.sale?.discount || 0)}</span></div><div className="receipt-grand-total"><strong>Total pembayaran</strong><strong>{idr(modal.sale?.total)}</strong></div></div><button className="button button-primary button-wide" onClick={() => printReceipt(modal.sale)}><Printer size={17} /> Cetak struk</button><button className="button button-secondary button-wide receipt-close-button" onClick={() => setModal(null)}>Tutup detail</button></div></Modal>}
+    {modal?.type === 'receipt' && <Modal title="Detail transaksi" subtitle={modal.sale?.receipt_no} onClose={() => setModal(null)} width="small"><div className="receipt-detail"><div className="receipt-success"><span><CheckCircle2 size={25} /></span><strong>Transaksi {modal.sale?.status === 'paid' ? 'berhasil' : 'diperbarui'}</strong><small>{formatDate(modal.sale?.created_at, { year: 'numeric' })}</small></div><div className="receipt-number-box"><small>Nomor struk</small><strong>{modal.sale?.receipt_no || '—'}</strong><span>{paymentLabel(modal.sale?.payment_method)} · {modal.sale?.cashier_name || displayName}</span></div><div className="receipt-detail-items">{(modal.sale?.sale_items || []).map((item, i) => <div className="receipt-detail-item" key={item.id || `${item.product_id}-${i}`}><div><strong>{item.product_name || item.name || 'Barang'}</strong><small>{item.qty} × {idr(item.unit_price)}</small></div><strong>{idr(item.subtotal ?? item.qty * item.unit_price)}</strong></div>)}</div><div className="receipt-totals"><div><span>Subtotal</span><span>{idr(modal.sale?.subtotal ?? modal.sale?.total)}</span></div><div><span>Diskon</span><span>−{idr(modal.sale?.discount || 0)}</span></div><div className="receipt-grand-total"><strong>Total pembayaran</strong><strong>{idr(modal.sale?.total)}</strong></div></div><button className="button button-primary button-wide" onClick={() => printReceipt(modal.sale)}><Printer size={17} /> Cetak Struk</button><button className="button button-secondary button-wide receipt-close-button" onClick={() => setModal(null)}>Tutup detail</button></div></Modal>}
 
     {toast && <div className={`toast toast-${toast.type || 'success'}`} role="status"><span>{toast.type === 'error' ? <AlertTriangle size={18} /> : toast.type === 'info' ? <CircleHelp size={18} /> : <CheckCircle2 size={18} />}</span><p>{toast.message}</p><button onClick={() => setToast('')} aria-label="Tutup notifikasi"><X size={15} /></button></div>}
   </div>

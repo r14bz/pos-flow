@@ -9,6 +9,7 @@ on:
       - "resources/**"
       - "index.html"
       - "package.json"
+      - "supabase/migrations/**"
       - "capacitor.config.ts"
       - "vite.config.js"
       - ".github/workflows/android-capacitor.yml"
@@ -68,6 +69,26 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
+      - name: Configure Firebase Cloud Messaging (optional)
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::warning::Firebase config secret is not set. The APK can build, but Android push registration will not work until FIREBASE_GOOGLE_SERVICES_JSON_BASE64 is configured."
+            exit 0
+          fi
+          echo "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+          grep -q "com.google.gms:google-services" android/build.gradle || sed -i "/classpath 'com.android.tools.build:gradle/a\\        classpath 'com.google.gms:google-services:4.4.2'" android/build.gradle
+          grep -q "com.google.gms.google-services" android/app/build.gradle || echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+      - name: Declare Android camera and Bluetooth permissions
+        run: |
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
       - name: Generate launcher icons from provided brand icon
         run: npm run android:icons
 
