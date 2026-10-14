@@ -1143,6 +1143,12 @@ function App() {
         await PushNotifications.addListener('registrationError', (event) => {
           showToast(event?.error || 'Pendaftaran notifikasi Firebase gagal.', 'error')
         })
+        await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
+          const destination = String(event?.notification?.data?.url || '')
+          if (destination.includes('inventory')) navigate('inventory')
+          else if (destination.includes('reports')) navigate('reports')
+          else navigate('dashboard')
+        })
         await PushNotifications.register()
         showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
       } catch (err) {
