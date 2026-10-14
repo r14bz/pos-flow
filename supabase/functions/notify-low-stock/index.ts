@@ -25,18 +25,35 @@ Deno.serve(async (req) => {
   if (productError || !product) return json({ error: 'Barang tidak ditemukan.' }, 404)
   if (Number(product.stock) > Number(product.min_stock)) return json({ sent: 0, reason: 'Stock is above the minimum.' })
 
-  let push: any
-  try { push = configuredWebPush() } catch (error) { return json({ error: (error as Error).message }, 503) }
-  const { data: subscriptions } = await admin.from('push_subscriptions').select('*').eq('store_id', body.store_id)
-  let sent = 0
-  const expired: string[] = []
-  for (const sub of subscriptions || []) {
-    try { await deliverPush(push, sub, { title: 'Stok menipis', body: `${product.name} tersisa ${product.stock} ${product.unit || 'unit'}. Batas minimum ${product.min_stock}.`, url: '/#inventory', tag: `low-stock-${product.id}` }); sent++ }
-    catch (error) {
-      if ([404, 410].includes(Number((error as any)?.statusCode))) expired.push(sub.id)
-      else console.error('Push delivery failed', error)
-    }
+  const payload = { title: 'Stok menipis', body: `${product.name} tersisa ${product.stock} ${product.unit || 'unit'}. Batas minimum ${product.min_stock}.`, url: '/#inventory', tag: `low-stock-${product.id}` }
+  let fcm = { sent: 0, failed: 0, stale: 0, skipped: true, reason: 'FCM belum dijalankan.' } as Record<string, unknown>
+  try {
+    const { sendFcmToStore } = await import('../_shared/fcm.ts')
+    fcm = await sendFcmToStore(admin, body.store_id, payload) as Record<string, unknown>
+  } catch (error) {
+    console.error('FCM delivery failed', error)
+    fcm = { sent: 0, failed: 1, error: (error as Error).message }
   }
-  if (expired.length) await admin.from('push_subscriptions').delete().in('id', expired)
-  return json({ sent, product_id: product.id })
+
+  let webSent = 0
+  const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+  if (publicKey && privateKey) {
+    try {
+      const push = configuredWebPush()
+      const { data: subscriptions } = await admin.from('push_subscriptions').select('*').eq('store_id', body.store_id)
+      const expired: string[] = []
+      for (const sub of subscriptions || []) {
+        try { await deliverPush(push, sub, payload); webSent++ }
+        catch (error) {
+          if ([404, 410].includes(Number((error as any)?.statusCode))) expired.push(sub.id)
+          else console.error('Web Push delivery failed', error)
+        }
+      }
+      if (expired.length) await admin.from('push_subscriptions').delete().in('id', expired)
+    } catch (error) { console.error('Web Push configuration failed', error) }
+  }
+  const fcmSent = Number(fcm.sent || 0)
+  return json({ sent: fcmSent + webSent, fcm, web_sent: webSent, product_id: product.id })
+
 })
