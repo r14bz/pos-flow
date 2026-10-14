@@ -1615,7 +1615,7 @@ function App() {
         <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button>
         {!isCashierPage && <button className="install-button" onClick={() => setModal({ type: 'install-options' })} aria-label="Opsi instalasi aplikasi" title="Install aplikasi"><DownloadCloud size={16} /><span>Install app</span></button>}<span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
       {loadingData && <div className="sync-banner"><span className="spinner spinner-dark" /> Memperbarui data toko…</div>}
-      <div className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
+      <div key={page} className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
         {page === 'dashboard' && renderDashboard()}
         {page === 'cashier' && renderCashier()}
         {page === 'inventory' && renderInventory()}
