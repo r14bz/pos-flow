@@ -1145,15 +1145,6 @@ function App() {
           else if (destination.includes('reports')) navigate('reports')
           else navigate('dashboard')
         })
-        await PushNotifications.createChannel({
-          id: 'semar-alerts-v1',
-          name: 'Notifikasi SEMAR',
-          description: 'Peringatan stok menipis dan pembaruan toko',
-          importance: 5,
-          sound: 'default',
-          vibration: true,
-          visibility: 1
-        })
         await PushNotifications.register()
         showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
       } catch (err) {
