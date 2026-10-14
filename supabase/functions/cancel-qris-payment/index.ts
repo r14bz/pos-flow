@@ -27,7 +27,7 @@ Deno.serve(async req => {
     const url = Deno.env.get('SUPABASE_URL')!
     const anon = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}').default
-    const token = (req.headers.get('Authorization') || '').replace(/^Bearer\\s+/i, '')
+    const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
     if (!token) return response({ error: 'Sesi login diperlukan.' }, 401)
     const userClient = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } })
     const { data: { user }, error: authError } = await userClient.auth.getUser(token)
