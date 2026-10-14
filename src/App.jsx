@@ -324,6 +324,16 @@ function App() {
   const isCashierPage = page === 'cashier'
 
   useEffect(() => {
+    const element = document.querySelector('.page-content')
+    if (!element) return
+    element.classList.remove('page-transition-enter')
+    void element.offsetWidth
+    element.classList.add('page-transition-enter')
+    const timer = window.setTimeout(() => element.classList.remove('page-transition-enter'), 360)
+    return () => window.clearTimeout(timer)
+  }, [page])
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme
     try { localStorage.setItem('tokoflow-theme', theme) } catch {}
   }, [theme])
