@@ -2008,7 +2008,8 @@ html[data-platform="capacitor"] {
   .store-code-copy-button { padding-left: 9px; padding-right: 9px; }
 }
 
-/* The Total Toko card keeps its green surface but uses high-contrast white text. */
+/* The Total Toko card uses a green surface and high-contrast white text. */
+.kpi-total-stores { background: linear-gradient(135deg, #087956, #10936d) !important; border-color: #0b875f !important; }
 .kpi-total-stores .kpi-top,
 .kpi-total-stores .kpi-value,
 .kpi-total-stores .kpi-foot,
