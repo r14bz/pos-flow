@@ -1838,3 +1838,22 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
     animation-duration: .01ms !important;
   }
 }
+
+
+@media (max-width: 720px) {
+  .mobile-bottom-nav button.active {
+    background: linear-gradient(135deg, #087956, #10936d) !important;
+    color: #fff !important;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(8,121,86,.18);
+  }
+  .mobile-bottom-nav button.active > span {
+    background: transparent !important;
+    box-shadow: none;
+  }
+  .mobile-bottom-nav button.active small,
+  .mobile-bottom-nav button.active > span,
+  .mobile-bottom-nav button.active > span svg {
+    color: #fff !important;
+  }
+}
