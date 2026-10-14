@@ -1353,7 +1353,7 @@ body { font-size: 15px; }
 .kpi-card-action { transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease; }
 
 /* Raise small utility text to a comfortable minimum across desktop, PWA and Capacitor. */
-:where(.eyebrow, .breadcrumb, .topbar-date, .nav-item, .store-switcher,
+body :is(.eyebrow, .breadcrumb, .topbar-date, .nav-item, .store-switcher,
 .panel-heading p, .kpi-top, .kpi-foot, .kpi-trend, .transaction-main strong,
 .transaction-main small, .transaction-amount small, .restock-main strong,
 .restock-main small, .cashier-header p, .cashier-scan-box > p,
@@ -1368,8 +1368,8 @@ body { font-size: 15px; }
 .notification-item p, .notification-item small, .settings-long-copy, .settings-footnote) {
   font-size: max(12px, .92em);
 }
-input, select, textarea, .form-stack input, .form-stack select,
-.search-input input, .cashier-barcode-input input { font-size: max(14px, 1em); }
+body :is(input, select, textarea, .form-stack input, .form-stack select,
+.search-input input, .cashier-barcode-input input) { font-size: max(14px, 1em); }
 button, .button { line-height: 1.35; }
 @media (max-width: 640px) {
   .cashier-scan-box { min-height: 0; padding: 22px 16px; }
@@ -1377,7 +1377,7 @@ button, .button { line-height: 1.35; }
   .transaction-search-bar { align-items: stretch; flex-direction: column; padding: 12px; gap: 8px; }
   .transaction-search-input { width: 100%; }
   .transaction-search-count { font-size: 12px; }
-  .dashboard-grid-secondary > .panel > .panel-heading { padding: 16px 16px 10px !important; }
+  .dashboard-grid.dashboard-grid-secondary > .panel > .panel-heading { padding: 16px !important; }
   .dashboard-grid-secondary .transaction-list,
   .dashboard-grid-secondary .restock-list { padding-left: 16px; padding-right: 16px; }
   .modal-scanner { width: calc(100vw - 24px); max-height: 88svh; }
