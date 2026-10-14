@@ -310,7 +310,7 @@ function App() {
   const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('owners')
-  const [expandedOwnerIds, setExpandedOwnerIds] = useState([])
+  const [collapsedOwnerIds, setCollapsedOwnerIds] = useState([])
   const [adminDirectory, setAdminDirectory] = useState([])
   const [adminDirLoading, setAdminDirLoading] = useState(false)
   const [adminDirError, setAdminDirError] = useState('')
@@ -1556,9 +1556,9 @@ function App() {
               <button className={`button button-sm ${owner.suspended ? 'button-primary' : 'button-secondary'}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: owner.user_id, label: owner.full_name || owner.email, suspended: owner.suspended, kind: 'owner', storeCount: owner.stores.length } })}>{owner.suspended ? <><UserCheck size={14} /> Aktifkan</> : <><Ban size={14} /> Tangguhkan</>}</button>
               <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'owner', id: owner.user_id, label: owner.full_name || owner.email, expected: owner.email, warning: `Akun ${owner.email} akan dihapus permanen beserta ${owner.stores.length} toko miliknya, seluruh produk, stok, riwayat transaksi, dan ${owner.stores.reduce((n, st) => n + st.employees.length, 0)} akun karyawan. Tindakan ini tidak dapat dibatalkan.` })} disabled={!owner.email}><Trash2 size={14} /> Hapus</button>
             </div>
-            <button type="button" className={`owner-expand-toggle ${expandedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`} aria-label={expandedOwnerIds.includes(owner.user_id) ? `Sembunyikan toko milik ${owner.full_name || owner.email}` : `Tampilkan toko milik ${owner.full_name || owner.email}`} aria-expanded={expandedOwnerIds.includes(owner.user_id)} onClick={() => setExpandedOwnerIds(ids => ids.includes(owner.user_id) ? ids.filter(id => id !== owner.user_id) : [...ids, owner.user_id])}><ChevronDown size={18} /></button>
+            <button type="button" className={`owner-expand-toggle ${!collapsedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`} aria-label={!collapsedOwnerIds.includes(owner.user_id) ? `Sembunyikan toko milik ${owner.full_name || owner.email}` : `Tampilkan toko milik ${owner.full_name || owner.email}`} aria-expanded={!collapsedOwnerIds.includes(owner.user_id)} onClick={() => setCollapsedOwnerIds(ids => ids.includes(owner.user_id) ? ids.filter(id => id !== owner.user_id) : [...ids, owner.user_id])}><ChevronDown size={18} /></button>
           </header>
-          <div className={`owner-stores-collapse ${expandedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`}><div className="owner-stores">
+          <div className={`owner-stores-collapse ${!collapsedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`}><div className="owner-stores">
             {owner.stores.length === 0 && <p className="owner-no-store">Belum memiliki toko.</p>}
             {owner.stores.map(st => <details className="owner-store" key={st.id}>
               <summary>
