@@ -62,7 +62,7 @@ export async function sendFcmToStore(admin: SupabaseClient, storeId: string, pay
         token: row.token,
         notification: { title: payload.title, body: payload.body },
         data: { url: payload.url || '/', tag: payload.tag || 'semar-notification' },
-        android: { priority: 'HIGH', notification: { channel_id: 'default', sound: 'default', tag: payload.tag || 'semar-notification' } },
+        android: { priority: 'HIGH', notification: { channel_id: 'semar-alerts-v1', sound: 'default', tag: payload.tag || 'semar-notification' } },
       } }),
     })
     if (response.ok) { sent++; continue }
