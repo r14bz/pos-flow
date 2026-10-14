@@ -1,5 +1,4 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { decryptCredential } from '../_shared/qris-crypto.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +7,18 @@ const cors = {
   'Content-Type': 'application/json',
 }
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: cors })
+
+async function decryptCredential(ciphertext: string, ivValue: string) {
+  const raw = Deno.env.get('PAYMENT_CREDENTIALS_ENCRYPTION_KEY')
+  if (!raw) throw new Error('PAYMENT_CREDENTIALS_ENCRYPTION_KEY belum dikonfigurasi.')
+  const keyBytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+  if (keyBytes.byteLength !== 32) throw new Error('Kunci enkripsi kredensial tidak valid.')
+  const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt'])
+  const encrypted = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0))
+  const iv = Uint8Array.from(atob(ivValue), c => c.charCodeAt(0))
+  const clear = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted)
+  return new TextDecoder().decode(clear)
+}
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
