@@ -1186,3 +1186,54 @@ input, select, textarea { color: var(--ink); }
 .theme-options button.selected { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
 .auth-form input:focus, .form-stack input:focus, .form-stack select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline:3px solid var(--accent-soft); outline-offset:2px; }
+
+
+/* SEMAR motion system: consistent, reduced-motion-aware transitions */
+:root { --motion-fast: 150ms; --motion-base: 220ms; --motion-slow: 320ms; }
+@media (prefers-reduced-motion: no-preference) {
+  .app-shell, .page-content, .panel, .auth-form-card, .modal-card, .notification-popover, .toast,
+  .product-card, .stat-card, .button, button, input, select, textarea, .sidebar, .mobile-drawer {
+    transition: color var(--motion-base) ease, background-color var(--motion-base) ease, border-color var(--motion-base) ease,
+      box-shadow var(--motion-base) ease, transform var(--motion-base) cubic-bezier(.2,.75,.25,1), opacity var(--motion-base) ease;
+  }
+  .auth-form-card { animation: semar-enter-up 420ms cubic-bezier(.2,.75,.25,1) both; }
+  .auth-role-choice > button { animation: semar-enter-up 360ms ease both; }
+  .auth-role-choice > button:nth-child(2) { animation-delay: 60ms; }
+  .notification-popover, .modal-card { animation: semar-enter-up 180ms ease both; transform-origin: top right; }
+  .page-content { animation: semar-page-enter 260ms ease both; }
+  .button:hover:not(:disabled), button:hover:not(:disabled) { transform: translateY(-1px); }
+  .button:active:not(:disabled), button:active:not(:disabled) { transform: translateY(0) scale(.985); }
+  input:focus, select:focus, textarea:focus { transform: translateY(-1px); }
+}
+@keyframes semar-enter-up { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes semar-page-enter { from { opacity: .45; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+/* Role selection and reset-password help */
+.auth-role-choice { display: grid; gap: 12px; margin: 24px 0 18px; }
+.auth-role-choice > button { display: flex; align-items: center; gap: 12px; justify-content: flex-start; min-height: 72px; text-align: left; padding: 15px 17px; }
+.auth-role-choice > button > span { display: grid; gap: 4px; flex: 1; }
+.auth-role-choice > button strong { font-size: 14px; font-weight: 700; }
+.auth-role-choice > button small { display: block; font-size: 12px; opacity: .78; font-weight: 400; }
+.auth-back-button, .auth-forgot-link { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: var(--text-muted, #64748b); padding: 6px 0; cursor: pointer; font: inherit; font-size: 13px; }
+.auth-back-button { margin-bottom: 15px; }
+.auth-forgot-link { margin-top: 12px; color: var(--accent, #16845b); font-weight: 650; }
+.auth-forgot-panel { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(5px); animation: semar-fade-in 150ms ease both; }
+.auth-forgot-panel-card { position: relative; width: min(100%, 420px); padding: 26px; border: 1px solid var(--border, #e2e8f0); border-radius: 20px; background: var(--surface, #fff); color: var(--text, #172033); box-shadow: 0 24px 80px rgba(15,23,42,.2); animation: semar-enter-up 200ms ease both; }
+.auth-forgot-panel-card h3 { margin: 0 28px 8px 0; font-size: 19px; }
+.auth-forgot-panel-card p { color: var(--text-muted, #64748b); font-size: 13px; line-height: 1.6; margin: 0 0 18px; }
+.auth-forgot-panel-card label { display: grid; gap: 6px; margin: 12px 0; font-size: 12px; font-weight: 650; }
+.auth-forgot-panel-card input { width: 100%; }
+.auth-forgot-close { position: absolute; right: 15px; top: 15px; border: 0; background: transparent; padding: 5px; cursor: pointer; }
+@keyframes semar-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Notification read state and next-step actions */
+.notification-head-actions { display: flex; align-items: center; gap: 8px; }
+.notification-head-actions button, .notification-mark-read { border: 0; background: transparent; color: var(--accent, #16845b); font-size: 11px; font-weight: 650; cursor: pointer; padding: 5px; }
+.notification-item.is-read { opacity: .62; }
+.notification-item.is-unread { background: color-mix(in srgb, var(--accent, #16845b) 5%, transparent); }
+.notification-item-content { min-width: 0; flex: 1; }
+.notification-item-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.notification-item-actions .button-xs { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; font-size: 11px; min-height: 28px; }
+.notification-mark-read { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 640px) { .auth-form-card { width: 100%; } .auth-forgot-panel-card { padding: 22px; } .notification-popover { max-width: calc(100vw - 24px); } }
