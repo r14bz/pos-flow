@@ -1453,3 +1453,86 @@ button, .button { line-height: 1.35; }
 .inventory-stat-hint { color: var(--accent); font-size: 11px; font-weight: 700; margin-top: 2px; }
 .inventory-low-stock-active { outline: 2px solid var(--accent); outline-offset: 2px; }
 .inventory-low-stock-notice { display: flex; align-items: center; gap: 8px; padding: 10px 16px; color: var(--accent-dark); background: var(--accent-pale); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 12px; }
+
+
+/* Typography hierarchy fix: headings stay visibly larger than supporting copy on every page. */
+:root {
+  --font-page-title: 24px;
+  --font-section-title: 16px;
+  --font-card-title: 15px;
+  --font-body: 14px;
+  --font-support: 13px;
+  --font-meta: 12px;
+}
+body { font-size: var(--font-body); }
+
+/* Main page headings and their subtitles */
+.page-title-row h1,
+.cashier-header h1,
+.auth-story h1 { font-size: var(--font-page-title) !important; line-height: 1.25 !important; }
+.page-title-row p,
+.cashier-header p { font-size: var(--font-support) !important; line-height: 1.55 !important; }
+
+/* Panel and card titles must outrank descriptions inside the same card. */
+.panel-heading h3,
+.dashboard-grid-secondary > .panel > .panel-heading h3 { font-size: var(--font-section-title) !important; line-height: 1.35 !important; }
+.panel-heading p,
+.dashboard-grid-secondary > .panel > .panel-heading p { font-size: var(--font-support) !important; line-height: 1.45 !important; }
+.kpi-card-action .kpi-top { font-size: var(--font-section-title) !important; line-height: 1.35 !important; }
+.kpi-card-action .kpi-value { font-size: 25px !important; line-height: 1.2 !important; }
+.kpi-card-action .kpi-foot,
+.kpi-card-action .kpi-shortcut-hint { font-size: var(--font-support) !important; line-height: 1.4 !important; }
+
+/* Keep labels, helper text and metadata below the title hierarchy. */
+.modal-header h2,
+.modal-header h3,
+.modal-title,
+.section-heading h2,
+.section-heading h3 { font-size: var(--font-section-title) !important; line-height: 1.35 !important; }
+.modal-header p,
+.form-helper,
+.label-helper,
+.settings-footnote,
+.settings-long-copy,
+.empty-state p,
+.inventory-stat-hint { font-size: var(--font-support) !important; line-height: 1.5 !important; }
+.form-stack label,
+.auth-form label,
+.settings-form-grid label { font-size: var(--font-body) !important; line-height: 1.4 !important; }
+.form-stack input,
+.form-stack select,
+.auth-form input,
+.settings-form-grid input { font-size: var(--font-body) !important; }
+.data-table th,
+.table-footer,
+.breadcrumb,
+.topbar-date,
+.eyebrow { font-size: var(--font-meta) !important; }
+.inventory-stat small { font-size: var(--font-support) !important; }
+.inventory-stat strong { font-size: 18px !important; }
+.cashier-scan-box h2 { font-size: 20px !important; line-height: 1.3 !important; }
+.cashier-scan-box > p { font-size: var(--font-support) !important; line-height: 1.45 !important; }
+button, .button { font-size: var(--font-body); }
+
+@media (max-width: 640px) {
+  :root {
+    --font-page-title: 23px;
+    --font-section-title: 16px;
+    --font-card-title: 15px;
+    --font-body: 14px;
+    --font-support: 13px;
+    --font-meta: 12px;
+  }
+  .page-title-row h1,
+  .cashier-header h1 { font-size: var(--font-page-title) !important; }
+  .panel-heading h3,
+  .dashboard-grid-secondary > .panel > .panel-heading h3 { font-size: var(--font-section-title) !important; }
+  .panel-heading p,
+  .dashboard-grid-secondary > .panel > .panel-heading p,
+  .page-title-row p,
+  .cashier-header p { font-size: var(--font-support) !important; }
+  .kpi-card-action .kpi-top { font-size: var(--font-support) !important; }
+  .kpi-card-action .kpi-value { font-size: 23px !important; }
+  .inventory-stat small { font-size: var(--font-support) !important; }
+  .inventory-stat strong { font-size: 18px !important; }
+}
