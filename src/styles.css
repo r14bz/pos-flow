@@ -1554,23 +1554,38 @@ input, select, textarea,
 }
 
 
-/* Follow-up typography rules requested for readability. */
+/* Final typography correction from user feedback. */
+/* Restore the page heading to the previous scale; enlarge the breadcrumb/page label
+   in the top bar, aligned horizontally with the PWA install control. */
 .page-title-row h1,
 .cashier-header h1 {
-  font-size: 26px !important;
-  line-height: 1.22 !important;
+  font-size: var(--font-page-title) !important;
+  line-height: 1.25 !important;
+}
+.breadcrumb strong {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+/* Restore Net Sales to the normal report-summary value scale.
+   Home and Stock KPI numbers should follow that value as their baseline. */
+.report-summary-card.featured > strong {
+  font-size: clamp(16px, 1.5vw, 22px) !important;
+  line-height: 1.2 !important;
+}
+.kpi-card-action .kpi-value,
+.inventory-stat strong {
+  font-size: clamp(16px, 1.5vw, 22px) !important;
+  line-height: 1.2 !important;
 }
 @media (max-width: 640px) {
   .page-title-row h1,
-  .cashier-header h1 { font-size: 24px !important; }
-}
-/* The empty-cart message is the minimum allowed text size across the app. */
-.cart-empty > strong { font-size: 11px !important; }
-/* Match the net-sales value to the main KPI values used on Home and Stock. */
-.report-summary-card.featured > strong {
-  font-size: clamp(19px, 1.7vw, 25px) !important;
-  line-height: 1.1 !important;
-}
-@media (max-width: 640px) {
-  .report-summary-card.featured > strong { font-size: clamp(19px, 5.2vw, 22px) !important; }
+  .cashier-header h1 { font-size: var(--font-page-title) !important; }
+  .report-summary-card.featured > strong,
+  .report-summary-card > strong,
+  .kpi-card-action .kpi-value,
+  .inventory-stat strong {
+    font-size: clamp(15px, 4.2vw, 19px) !important;
+    line-height: 1.2 !important;
+  }
 }
