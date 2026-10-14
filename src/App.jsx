@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx'
 import { Capacitor } from '@capacitor/core'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
 import { BleClient } from '@capacitor-community/bluetooth-le'
+import { PushNotifications } from '@capacitor/push-notifications'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
@@ -1073,20 +1074,60 @@ function App() {
   }
 
   const enablePush = async () => {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi.', 'error')
+    if (demo) {
+      if ('Notification' in window && Notification.permission !== 'denied') {
+        const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+        if (permission === 'granted') new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' })
+      }
+      showToast('Notifikasi demo diaktifkan untuk sesi ini.')
+      return
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        let permission = await PushNotifications.checkPermissions()
+        if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions()
+        if (permission.receive !== 'granted') return showToast('Izin notifikasi Android belum diberikan.', 'error')
+        await PushNotifications.removeAllListeners()
+        await PushNotifications.addListener('registration', async ({ value: token }) => {
+          try {
+            const { error } = await supabase.from('fcm_tokens').upsert({
+              user_id: session.user.id,
+              store_id: storeId || null,
+              token,
+              platform: 'android',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'token' })
+            if (error) throw error
+            showToast('Notifikasi Android berhasil diaktifkan.')
+          } catch (err) {
+            showToast(err?.message || 'Token notifikasi gagal disimpan.', 'error')
+          }
+        })
+        await PushNotifications.addListener('registrationError', (event) => {
+          showToast(event?.error || 'Pendaftaran notifikasi Firebase gagal.', 'error')
+        })
+        await PushNotifications.register()
+        showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
+      } catch (err) {
+        showToast(err?.message || 'Gagal mengaktifkan notifikasi Android.', 'error')
+      }
+      return
+    }
+
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi web.', 'error')
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return showToast('Izin notifikasi belum diberikan.', 'error')
-    if (demo) { new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' }); showToast('Notifikasi perangkat diaktifkan untuk sesi ini.'); return }
     const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY
-    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push di latar belakang.', 'error')
+    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push web di latar belakang.', 'error')
     try {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) })
       const json = subscription.toJSON()
       const { error } = await supabase.from('push_subscriptions').upsert({ user_id: session.user.id, store_id: storeId || null, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }, { onConflict: 'endpoint' })
       if (error) throw error
-      showToast('Push notification berhasil diaktifkan.')
-    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification.', 'error') }
+      showToast('Push notification web berhasil diaktifkan.')
+    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification web.', 'error') }
   }
 
   const openPrinter = async () => {
