@@ -2017,3 +2017,51 @@ html[data-platform="capacitor"] {
 .kpi-total-stores .kpi-top > span:first-child,
 .kpi-total-stores .kpi-foot > span { color: #fff !important; opacity: 1 !important; }
 .kpi-total-stores .kpi-icon { color: #fff !important; background: rgba(255,255,255,.16) !important; }
+
+
+/* Copy action sits inside the ID field so the input keeps its full width. */
+.store-code-input-row { position: relative; display: block; }
+.store-code-input-row input { width: 100%; padding-right: 42px !important; box-sizing: border-box; }
+.store-code-copy-button { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 7px; background: var(--surface-2); color: var(--accent); cursor: pointer; }
+.store-code-copy-button:hover { background: var(--accent-soft); }
+
+/* Darken the full-page notification scrim slightly and preserve bottom breathing room. */
+.notification-backdrop { background: rgba(8, 20, 15, .30) !important; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.notification-footer { margin-bottom: 12px !important; }
+.notification-mark-all-bottom + .notification-footer { margin-top: 8px !important; }
+.notification-popover { padding-bottom: 4px; }
+
+/* Owner list can expand/collapse smoothly without abruptly removing the store list. */
+.owner-expand-toggle { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; margin-left: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--muted); cursor: pointer; transition: background .18s ease, color .18s ease, transform .24s ease; }
+.owner-expand-toggle:hover { background: var(--accent-soft); color: var(--accent); }
+.owner-expand-toggle.is-expanded svg { transform: rotate(180deg); }
+.owner-expand-toggle svg { transition: transform .24s cubic-bezier(.2,.75,.25,1); }
+.owner-stores-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .28s cubic-bezier(.2,.75,.25,1), opacity .2s ease; border-top: 0 solid var(--line); }
+.owner-stores-collapse.is-expanded { grid-template-rows: 1fr; opacity: 1; border-top-width: 1px; }
+.owner-stores-collapse > .owner-stores { min-height: 0; overflow: hidden; border-top: 0; }
+.owner-store > .owner-store-actions,
+.owner-store > .staff-list { animation: owner-sublist-enter .22s ease both; }
+@keyframes owner-sublist-enter { from { opacity: .45; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Capacitor login form is rendered before the authenticated app shell, so give it its own native-only font scale. */
+html[data-platform="capacitor"] .auth-screen .auth-form-heading h2 { font-size: calc(25px + 3px) !important; }
+html[data-platform="capacitor"] .auth-screen .auth-form-heading p,
+html[data-platform="capacitor"] .auth-screen .auth-form label,
+html[data-platform="capacitor"] .auth-screen .auth-form input,
+html[data-platform="capacitor"] .auth-screen .auth-switch,
+html[data-platform="capacitor"] .auth-screen .auth-role-button,
+html[data-platform="capacitor"] .auth-screen .auth-role-button small,
+html[data-platform="capacitor"] .auth-screen .auth-footnote,
+html[data-platform="capacitor"] .auth-screen .auth-forgot-link,
+html[data-platform="capacitor"] .auth-screen .auth-back-button,
+html[data-platform="capacitor"] .auth-screen .auth-reset-panel,
+html[data-platform="capacitor"] .auth-screen .auth-bottom-note { font-size: calc(12px + 3px) !important; }
+html[data-platform="capacitor"] .auth-screen .auth-form input { font-size: 15px !important; }
+html[data-platform="capacitor"] .auth-screen .auth-role-button strong { font-size: 15px !important; }
+
+/* Slightly reduce the login brand/banner artwork on narrow screens, across web, PWA and Capacitor. */
+@media (max-width: 640px) {
+  .auth-form-logo { max-width: 350px; margin-bottom: 20px; }
+  .auth-form-logo .brand-logo { height: 60px; }
+  .auth-form-side { padding-top: 22px; }
+}
