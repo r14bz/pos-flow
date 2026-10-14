@@ -81,7 +81,7 @@ function Logo({ small = false, light = false }) {
 }
 
 function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -89,57 +89,56 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
   const [storeCode, setStoreCode] = useState('')
   const [username, setUsername] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotUsername, setForgotUsername] = useState('')
   const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName, storeCode, username }) }
+  const back = () => { setMode('choose'); setError(''); setForgotOpen(false) }
+  const requestOwnerReset = () => {
+    const message = `Halo Administrator SEMAR, saya lupa kata sandi. Username: ${forgotUsername || '(belum diisi)'}, email: ${email || '(belum diisi)'}. Mohon bantuan reset password.`
+    window.open(`https://wa.me/6289676707976?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+  }
   return <div className="auth-screen">
-    <section className="auth-story">
-      <div className="auth-story-inner">
-        <div className="auth-story-copy">
-          <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
-          <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
-          <p>Semua toko, transaksi, dan laporan dalam satu tempat. Lebih rapi untuk Anda, lebih cepat untuk pelanggan.</p>
-          <div className="auth-benefit-list">
-            <div><span><Cloud size={17} /></span><section><strong>Data tersinkron otomatis</strong><small>Update toko secara real-time</small></section></div>
-            <div><span><FileSpreadsheet size={17} /></span><section><strong>Laporan siap diunduh</strong><small>Rekap penjualan dalam Excel</small></section></div>
-            <div><span><ShieldCheck size={17} /></span><section><strong>Data terpisah dan aman</strong><small>Akses berbasis peran pengguna</small></section></div>
-          </div>
-        </div>
-        <div className="auth-story-footer"><span>© 2026 SEMAR</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div>
+    <section className="auth-story"><div className="auth-story-inner"><div className="auth-story-copy">
+      <div className="eyebrow light-eyebrow"><span className="eyebrow-dot" /> SISTEM KASIR TERPADU</div>
+      <h1>Bisnis lancar,<br /><em>stok terkendali.</em></h1>
+      <p>Semua toko, transaksi, dan laporan dalam satu tempat. Lebih rapi untuk Anda, lebih cepat untuk pelanggan.</p>
+      <div className="auth-benefit-list">
+        <div><span><Cloud size={17} /></span><section><strong>Data tersinkron otomatis</strong><small>Update toko secara real-time</small></section></div>
+        <div><span><FileSpreadsheet size={17} /></span><section><strong>Laporan siap diunduh</strong><small>Rekap penjualan dalam Excel</small></section></div>
+        <div><span><ShieldCheck size={17} /></span><section><strong>Data terpisah dan aman</strong><small>Akses berbasis peran pengguna</small></section></div>
       </div>
-      <div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" />
-    </section>
-    <section className="auth-form-side">
-      <div className="auth-form-logo"><Logo /></div>
-      <div className="auth-form-card">
-        <div className="auth-form-heading">
-          <div className="eyebrow">RUANG KERJA ANDA</div>
-          <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
+    </div><div className="auth-story-footer"><span>© 2026 SEMAR</span><span><LockKeyhole size={13} /> Dibuat untuk bisnis Indonesia</span></div></div><div className="story-orbit orbit-one" /><div className="story-orbit orbit-two" /></section>
+    <section className="auth-form-side"><div className="auth-form-logo"><Logo /></div><div className="auth-form-card">
+      {mode === 'choose' ? <>
+        <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>Masuk ke SEMAR</h2><p>Pilih jenis akun untuk melanjutkan.</p></div>
+        <div className="auth-role-choice">
+          <button type="button" className="button button-primary button-wide" onClick={() => { setMode('login'); setError('') }}><ShieldCheck size={18} /><span><strong>Login sebagai owner/pemilik</strong><small>Kelola toko dan bisnis Anda</small></span><ChevronRight size={18} /></button>
+          <button type="button" className="button button-secondary button-wide" onClick={() => { setMode('employee'); setError('') }}><Users size={18} /><span><strong>Login sebagai karyawan</strong><small>Masuk dengan ID toko dan username</small></span><ChevronRight size={18} /></button>
         </div>
+        <div className="auth-switch">Belum punya akun? <button type="button" onClick={() => { setMode('signup'); setError('') }}>Daftar</button></div>
+        <div className="auth-separator"><span /><small>ATAU COBA DULU</small><span /></div>
+        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
+        <p className="auth-footnote">Demo memakai data contoh dan tidak terhubung ke toko nyata.</p>
+      </> : <>
+        <button type="button" className="auth-back-button" onClick={back}><ArrowLeft size={16} /> Kembali ke pilihan login</button>
+        <div className="auth-form-heading"><div className="eyebrow">{mode === 'employee' ? 'AKSES KARYAWAN' : mode === 'signup' ? 'AKUN BARU' : 'AKSES PEMILIK'}</div><h2>{mode === 'employee' ? 'Login karyawan' : mode === 'signup' ? 'Daftarkan bisnis' : 'Login owner/pemilik'}</h2><p>{mode === 'employee' ? 'Gunakan ID toko dan akun yang diberikan pemilik.' : mode === 'signup' ? 'Buat akun untuk memulai dengan SEMAR.' : 'Masuk menggunakan email dan kata sandi.'}</p></div>
         <form onSubmit={submit} className="auth-form">
-          {mode === 'signup' && <>
-            <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
-            <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
-          </>}
+          {mode === 'signup' && <><label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label><label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label></>}
           {mode === 'employee' ? <>
-            <label>Kode toko (ID toko)<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" required /></label>
+            <label>ID toko<input value={storeCode} onChange={e => setStoreCode(e.target.value.toUpperCase())} placeholder="Kode toko dari pemilik" autoCapitalize="characters" required /></label>
             <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
           </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
-          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
           {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
-          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Masuk sebagai karyawan' : mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
+          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase agar login dan sinkronisasi aktif.</small></span></div>}
+          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Login sebagai karyawan' : mode === 'signup' ? 'Buat akun dan toko' : 'Login sebagai owner'}</button>
         </form>
-        {mode !== 'employee' && <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>}
-        <div className="auth-switch"><button onClick={() => { setMode(mode === 'employee' ? 'login' : 'employee'); setError('') }}>{mode === 'employee' ? 'Kembali ke login pemilik' : 'Login sebagai karyawan'}</button></div>
-        <div className="auth-separator"><span /> <small>ATAU COBA DULU</small> <span /></div>
-        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
-        <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
-      </div>
-      <div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div>
-    </section>
+        {mode === 'employee' ? <button type="button" className="auth-forgot-link" onClick={() => setForgotOpen(true)}>Lupa kata sandi?</button> : mode === 'login' ? <button type="button" className="auth-forgot-link" onClick={() => setForgotOpen(true)}>Lupa kata sandi?</button> : <div className="auth-switch">Sudah punya akun? <button type="button" onClick={() => { setMode('login'); setError('') }}>Login</button></div>}
+        {forgotOpen && <div className="auth-forgot-panel" role="dialog" aria-modal="true"><div className="auth-forgot-panel-card"><button type="button" className="auth-forgot-close" onClick={() => setForgotOpen(false)} aria-label="Tutup"><X size={17} /></button><h3>{mode === 'employee' ? 'Hubungi pemilik toko' : 'Bantuan reset kata sandi'}</h3>{mode === 'employee' ? <p>Untuk menjaga keamanan akun, silakan hubungi pemilik toko agar kata sandi Anda diatur ulang.</p> : <><p>Isi username dan email akun. WhatsApp akan terbuka dengan pesan permintaan reset yang sudah disiapkan.</p><label>Username<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} placeholder="Username Anda" /></label><label>Email akun<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" /></label><button type="button" className="button button-primary button-wide" onClick={requestOwnerReset}><Send size={16} /> Hubungi administrator via WhatsApp</button></>}</div></div>}
+      </>}
+    </div><div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div></section>
   </div>
 }
-
 function Modal({ title, subtitle, onClose, children, width = 'normal', noClose = false }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !noClose) onClose?.() }
@@ -262,6 +261,7 @@ function App() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState(() => { try { return JSON.parse(localStorage.getItem('semar-read-notifications') || '[]') } catch { return [] } })
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -729,10 +729,13 @@ function App() {
     const low = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
     const recent = sales.filter(s => jakartaDateKey(s.created_at) === todayISO() && s.status === 'paid')
     return [
-      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti' })),
+      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti', action: 'inventory', productId: p.id })),
       ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis' }] : []),
     ]
   }, [products, sales])
+  const unreadNotifications = notifications.filter(n => !readNotificationIds.includes(n.id))
+  const markNotificationRead = (id) => setReadNotificationIds(current => { const next = [...new Set([...current, id])]; try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch {} return next })
+  const markAllNotificationsRead = () => { const next = [...new Set([...readNotificationIds, ...notifications.map(n => n.id)])]; setReadNotificationIds(next); try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch {} }
 
   const categories = useMemo(() => ['Semua', ...new Set(products.map(p => p.category).filter(Boolean))], [products])
   const filteredProducts = useMemo(() => products.filter(p => {
@@ -1493,7 +1496,7 @@ function App() {
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
         {!isCashierPage && <button className="install-button" onClick={installApp}><DownloadCloud size={16} /><span>Install app</span></button>}
-        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={notifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{notifications.length} pembaruan</small></div><button onClick={() => setNotificationOpen(false)}><X size={16} /></button></div>{notifications.length ? notifications.map(n => <div className="notification-item" key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small></div></div>) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
+        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={unreadNotifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{unreadNotifications.length} belum dibaca · {notifications.length} total</small></div><div className="notification-head-actions">{unreadNotifications.length > 0 && <button type="button" onClick={markAllNotificationsRead}>Tandai semua dibaca</button>}<button onClick={() => setNotificationOpen(false)} aria-label="Tutup"><X size={16} /></button></div></div>{notifications.length ? notifications.map(n => { const isRead = readNotificationIds.includes(n.id); return <div className={`notification-item ${isRead ? 'is-read' : 'is-unread'}`} key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div className="notification-item-content"><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small><div className="notification-item-actions">{n.action && <button type="button" className="button button-primary button-xs" onClick={() => { markNotificationRead(n.id); setNotificationOpen(false); navigate(n.action); setStockSearch(products.find(p => p.id === n.productId)?.name || '') }}>Lihat stok <ArrowRight size={13} /></button>}{!isRead && <button type="button" className="notification-mark-read" onClick={() => markNotificationRead(n.id)}><CheckCheck size={13} /> Tandai dibaca</button>}</div></div></div> }) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
         <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
       {loadingData && <div className="sync-banner"><span className="spinner spinner-dark" /> Memperbarui data toko…</div>}
       <div className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
