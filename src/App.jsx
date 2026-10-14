@@ -77,15 +77,18 @@ function Logo({ small = false, light = false }) {
 }
 
 function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [storeName, setStoreName] = useState('')
   const [storeCode, setStoreCode] = useState('')
   const [username, setUsername] = useState('')
+  const [forgotUsername, setForgotUsername] = useState('')
   const [showPass, setShowPass] = useState(false)
   const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName, storeCode, username }) }
+  const back = () => { setMode('choose'); setError(''); setPassword('') }
+  const ownerResetMessage = encodeURIComponent(`Halo Administrator SEMAR, saya lupa kata sandi dan ingin mengajukan reset password. Username: ${forgotUsername || '(belum diisi)'}, email: ${email || '(belum diisi)'}.`)
   return <div className="auth-screen">
     <section className="auth-story">
       <div className="auth-story-inner">
@@ -106,36 +109,40 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
     <section className="auth-form-side">
       <div className="auth-form-logo"><Logo /></div>
       <div className="auth-form-card">
-        <div className="auth-form-heading">
-          <div className="eyebrow">RUANG KERJA ANDA</div>
-          <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
-        </div>
-        <form onSubmit={submit} className="auth-form">
-          {mode === 'signup' && <>
-            <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
-            <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
-          </>}
-          {mode === 'employee' ? <>
-            <label>Kode toko (ID toko)<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" required /></label>
-            <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
-          </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
-          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
-          {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
-          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Masuk sebagai karyawan' : mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
-        </form>
-        {mode !== 'employee' && <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>}
-        <div className="auth-switch"><button onClick={() => { setMode(mode === 'employee' ? 'login' : 'employee'); setError('') }}>{mode === 'employee' ? 'Kembali ke login pemilik' : 'Login sebagai karyawan'}</button></div>
-        <div className="auth-separator"><span /> <small>ATAU COBA DULU</small> <span /></div>
-        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
-        <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
+        {mode === 'choose' ? <>
+          <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>Masuk ke SEMAR</h2><p>Pilih jenis akun untuk melanjutkan.</p></div>
+          <div className="auth-role-choices">
+            <button className="button button-primary button-wide auth-role-button" onClick={() => { setMode('login'); setError('') }}><ShieldCheck size={18} /><span><strong>Login sebagai Owner / Pemilik</strong><small>Kelola toko dan bisnis Anda</small></span><ChevronRight size={18} /></button>
+            <button className="button button-secondary button-wide auth-role-button" onClick={() => { setMode('employee'); setError('') }}><Users size={18} /><span><strong>Login sebagai Karyawan</strong><small>Masuk menggunakan ID toko</small></span><ChevronRight size={18} /></button>
+          </div>
+          <div className="auth-switch auth-choice-links">Belum memiliki akun? <button onClick={() => { setMode('signup'); setError('') }}>Daftar sekarang</button></div>
+          <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
+          <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
+        </> : <>
+          <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>{mode === 'employee' ? 'Login karyawan' : mode === 'signup' ? 'Daftar akun pemilik' : 'Login Owner / Pemilik'}</h2><p>{mode === 'employee' ? 'Gunakan ID toko dan akun yang diberikan pemilik toko.' : mode === 'signup' ? 'Buat akun untuk memulai dengan SEMAR.' : 'Masuk untuk melanjutkan ke dashboard toko Anda.'}</p></div>
+          <form onSubmit={submit} className="auth-form">
+            {mode === 'signup' && <>
+              <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
+              <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
+            </>}
+            {mode === 'employee' ? <>
+              <label>ID toko<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" autoComplete="organization" required /></label>
+              <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
+            </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
+            <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Kata sandi" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
+            {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
+            <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Login sebagai karyawan' : mode === 'signup' ? 'Buat akun dan toko' : 'Login sebagai pemilik'}</button>
+          </form>
+          {mode === 'employee' ? <button className="auth-forgot-link" onClick={() => window.alert('Silakan hubungi owner/pemilik toko Anda untuk meminta reset kata sandi karyawan.')}>Lupa kata sandi?</button> : mode === 'login' ? <div className="auth-reset-panel"><p>Lupa kata sandi?</p><label>Username<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} placeholder="Username Anda" /></label><a className="button button-secondary button-wide" href={`https://wa.me/6289676707976?text=${ownerResetMessage}`} target="_blank" rel="noreferrer"><Send size={16} /> Ajukan reset lewat WhatsApp</a><small>Pesan WhatsApp akan berisi username dan email yang Anda masukkan.</small></div> : null}
+          {mode === 'signup' && <div className="auth-switch">Sudah memiliki akun? <button onClick={() => { setMode('login'); setError('') }}>Login</button></div>}
+          <button className="auth-back-button" onClick={back}><ArrowLeft size={16} /> Kembali ke pilihan login</button>
+        </>}
       </div>
       <div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div>
     </section>
   </div>
 }
-
 function Modal({ title, subtitle, onClose, children, width = 'normal', noClose = false }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !noClose) onClose?.() }
