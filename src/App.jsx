@@ -19,6 +19,7 @@ import {
 import * as XLSX from 'xlsx'
 import { Capacitor } from '@capacitor/core'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
+import { BleClient } from '@capacitor-community/bluetooth-le'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
@@ -1089,12 +1090,30 @@ function App() {
   }
 
   const openPrinter = async () => {
-    if (!navigator.bluetooth) return showToast('Web Bluetooth tidak tersedia di browser ini. Coba Chrome Android atau gunakan tombol Cetak struk.', 'error')
     try {
+      if (Capacitor.isNativePlatform()) {
+        await BleClient.initialize({ androidNeverForLocation: true })
+        const enabled = await BleClient.isEnabled()
+        if (!enabled) {
+          await BleClient.requestEnable()
+        }
+        const device = await BleClient.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        })
+        showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Perangkat ini harus mendukung BLE agar bisa ditemukan di sini.`, 'info')
+        return
+      }
+      if (!navigator.bluetooth) {
+        showToast('Browser ini tidak mendukung Web Bluetooth. Buka SEMAR dalam aplikasi Android untuk mencari perangkat BLE.', 'error')
+        return
+      }
       const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] })
-      showToast(`Printer ${device.name || 'Bluetooth'} terdeteksi. Kompatibilitas cetak bergantung pada profil BLE printer.`, 'info')
-      // A printer picker is intentionally not treated as proof of printing support.
-    } catch (err) { if (err?.name !== 'NotFoundError') showToast(err?.message || 'Gagal menghubungkan printer.', 'error') }
+      showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Pastikan printer mendukung BLE.`, 'info')
+    } catch (err) {
+      if (err?.name === 'NotFoundError' || err?.message?.toLowerCase?.().includes('cancel')) return
+      showToast(err?.message || 'Bluetooth tidak dapat diakses. Periksa izin Bluetooth dan lokasi pada pengaturan Android.', 'error')
+    }
   }
 
   const selectedReportSales = sales.filter(s => {
