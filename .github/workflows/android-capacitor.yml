@@ -69,6 +69,47 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
+      - name: Create audible SEMAR notification channel
+        run: |
+          mkdir -p android/app/src/main/java/id/posflow/app
+          cat > android/app/src/main/java/id/posflow/app/MainActivity.java <<'JAVA'
+          package id.posflow.app;
+
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.media.AudioAttributes;
+          import android.media.RingtoneManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      String channelId = "semar-alerts-v1";
+                      NotificationChannel channel = new NotificationChannel(
+                          channelId,
+                          "Notifikasi SEMAR",
+                          NotificationManager.IMPORTANCE_HIGH
+                      );
+                      channel.setDescription("Peringatan stok menipis dan pembaruan toko");
+                      channel.enableVibration(true);
+                      channel.setSound(
+                          RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                          new AudioAttributes.Builder()
+                              .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                              .build()
+                      );
+                      NotificationManager manager = getSystemService(NotificationManager.class);
+                      if (manager != null) manager.createNotificationChannel(channel);
+                  }
+              }
+          }
+          JAVA
+
       - name: Configure Firebase Cloud Messaging (optional)
         env:
           FIREBASE_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
