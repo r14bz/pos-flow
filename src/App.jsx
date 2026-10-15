@@ -75,9 +75,21 @@ function IconButton({ icon: Icon, label, onClick, className = '', badge = false,
 }
 
 function Logo({ small = false, light = false }) {
+  const filterId = `semar-mark-${React.useId().replace(/:/g, '')}`;
   return <div className={`brand-lockup ${small ? 'brand-small' : ''} ${light ? 'brand-light' : ''}`}>
-    <img className="brand-logo brand-logo-light" src="/brand/semar-logo.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="519" decoding="async" />
-    <img className="brand-logo brand-logo-dark" src="/brand/semar-logo-dark.png" alt="SEMAR — Sistem Manajemen Retail" width="1200" height="522" decoding="async" loading="lazy" />
+    <svg className="brand-logo semar-banner-svg" viewBox="0 0 1200 600" role="img" aria-label="SEMAR — Sistem Manajemen Retail" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id={filterId} colorInterpolationFilters="sRGB">
+          <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.6 0.6 0.2 0 -1.4" result="mark-mask" />
+          <feComposite in="mark-mask" in2="SourceAlpha" operator="in" result="clean-mask" />
+          <feFlood floodColor="currentColor" result="solid-mark" />
+          <feComposite in="solid-mark" in2="clean-mask" operator="in" />
+        </filter>
+      </defs>
+      <image href="/resources/icon.png" x="0" y="24" width="560" height="552" preserveAspectRatio="xMidYMid meet" filter={`url(#${filterId})`} />
+      <text x="458" y="360" fill="currentColor" fontFamily="'Arial Narrow', 'Roboto Condensed', sans-serif" fontSize="250" fontWeight="900" letterSpacing="-7">SEMAR</text>
+      <text x="470" y="444" fill="currentColor" fontFamily="'DM Sans', Arial, sans-serif" fontSize="38" fontWeight="800" letterSpacing="0.5">SISTEM MANAJEMEN RETAIL</text>
+    </svg>
   </div>
 }
 

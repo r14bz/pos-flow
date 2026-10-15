@@ -1,5 +1,5 @@
-const CACHE = 'semar-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/brand/semar-logo.png', '/brand/semar-logo-dark.png'];
+const CACHE = 'semar-shell-v2';
+const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/resources/icon.png'];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))));
 self.addEventListener('activate', (event) => event.waitUntil(
   caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())

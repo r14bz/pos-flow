@@ -1085,14 +1085,18 @@ input, select, textarea { color: var(--ink); }
 :root[data-theme='dark'] .admin-search input::placeholder { color: var(--muted-2); }
 
 /* Brand logo (SEMAR) */
-.brand-lockup .brand-logo { display: block; width: auto; height: 72px; max-width: 100%; object-fit: contain; border-radius: 12px; background: #fff; }
+.brand-lockup .brand-logo { display: block; width: auto; height: 72px; max-width: 100%; object-fit: contain; border-radius: 0; background: transparent; }
+.brand-lockup { color: #0c8662; }
+:root[data-theme='dark'] .brand-lockup:not(.brand-light) { color: #fff; }
+.brand-lockup.brand-light { color: #fff; }
+.brand-lockup .semar-banner-svg { overflow: visible; }
 .brand-small .brand-logo { height: 56px; }
 .sidebar-brand-row { margin-bottom: 22px; }
 .sidebar-brand-row .brand-lockup { flex: 1 1 auto; justify-content: flex-start; }
 .auth-form-logo { width: 100%; max-width: 415px; margin: auto auto 26px; }
 .auth-form-side > .auth-form-card { margin: 0 auto auto; }
 .auth-form-logo .brand-lockup { display: block; width: 100%; }
-.auth-form-logo .brand-logo { width: 100%; height: auto; border-radius: 16px; }
+.auth-form-logo .brand-logo { width: 100%; height: auto; border-radius: 0; }
 .loading-brand .brand-logo { height: 110px; }
 .onboarding-card .brand-logo { width: 100%; height: auto; }
 @media (max-width: 720px) { .sidebar-brand-row .brand-logo { height: 68px; } .auth-form-logo { margin-top: 0; } }
