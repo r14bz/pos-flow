@@ -1546,11 +1546,13 @@ function App() {
         {filteredOwners.map(owner => <article className="owner-card panel" key={owner.user_id}>
           <header className="owner-head">
             <span className="avatar avatar-owner">{initials(owner.full_name || owner.email)}</span>
-            <div className="owner-ident">
-              <strong>{owner.full_name || 'Tanpa nama'}{owner.suspended && <StatusPill status="suspended" />}</strong>
-              <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
-              <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
-            </div>
+            <div className="owner-ident-row">
+              <div className="owner-ident">
+                <strong>{owner.full_name || 'Tanpa nama'}{owner.suspended && <StatusPill status="suspended" />}</strong>
+                <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
+                <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
+              </div>
+              </div>
             <div className="owner-actions">
               <button className="button button-secondary button-sm" onClick={() => openAdminReset({ user_id: owner.user_id, label: owner.full_name || owner.email, sub: owner.email, kind: 'owner' })}><KeyRound size={14} /> Reset sandi</button>
               <button className={`button button-sm ${owner.suspended ? 'button-primary' : 'button-secondary'}`} onClick={() => setModal({ type: 'admin-suspend', target: { user_id: owner.user_id, label: owner.full_name || owner.email, suspended: owner.suspended, kind: 'owner', storeCount: owner.stores.length } })}>{owner.suspended ? <><UserCheck size={14} /> Aktifkan</> : <><Ban size={14} /> Tangguhkan</>}</button>
