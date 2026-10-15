@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Activity, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Barcode, Bell, Boxes,
   Building2, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
@@ -17,6 +18,10 @@ import {
   paymentLabel, roleLabel
 } from './lib/demoData'
 import * as XLSX from 'xlsx'
+import { Capacitor } from '@capacitor/core'
+import { Printer as NativePrinter } from '@capgo/capacitor-printer'
+import { BleClient } from '@capacitor-community/bluetooth-le'
+import { PushNotifications } from '@capacitor/push-notifications'
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
@@ -77,15 +82,19 @@ function Logo({ small = false, light = false }) {
 }
 
 function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState('choose')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [storeName, setStoreName] = useState('')
   const [storeCode, setStoreCode] = useState('')
   const [username, setUsername] = useState('')
+  const [forgotUsername, setForgotUsername] = useState('')
+  const [showOwnerForgot, setShowOwnerForgot] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const submit = (e) => { e.preventDefault(); setError(''); onAuth({ mode, email, password, name, storeName, storeCode, username }) }
+  const back = () => { setMode('choose'); setError(''); setPassword(''); setShowOwnerForgot(false); setEmail(''); setUsername(''); setStoreCode('') }
+  const ownerResetMessage = encodeURIComponent(`Halo Administrator SEMAR, saya lupa kata sandi dan ingin mengajukan reset password. Username: ${forgotUsername || '(belum diisi)'}, email: ${email || '(belum diisi)'}.`)
   return <div className="auth-screen">
     <section className="auth-story">
       <div className="auth-story-inner">
@@ -106,36 +115,40 @@ function AuthScreen({ onDemo, onAuth, busy, error, setError }) {
     <section className="auth-form-side">
       <div className="auth-form-logo"><Logo /></div>
       <div className="auth-form-card">
-        <div className="auth-form-heading">
-          <div className="eyebrow">RUANG KERJA ANDA</div>
-          <h2>{mode === 'employee' ? 'Login karyawan' : mode === 'login' ? 'Selamat datang kembali' : 'Mulai kelola bisnis'}</h2>
-          <p>{mode === 'employee' ? 'Masuk menggunakan kode toko dan akun yang diberikan pemilik.' : mode === 'login' ? 'Masuk untuk melanjutkan ke dashboard toko Anda.' : 'Buat akun untuk memulai dengan SEMAR.'}</p>
-        </div>
-        <form onSubmit={submit} className="auth-form">
-          {mode === 'signup' && <>
-            <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
-            <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
-          </>}
-          {mode === 'employee' ? <>
-            <label>Kode toko (ID toko)<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" required /></label>
-            <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
-          </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
-          <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 8 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
-          {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
-          {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Masuk sebagai karyawan' : mode === 'login' ? 'Masuk ke dashboard' : 'Buat akun dan toko'}</button>
-        </form>
-        {mode !== 'employee' && <div className="auth-switch">{mode === 'login' ? 'Belum memiliki akun?' : 'Sudah memiliki akun?'} <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}>{mode === 'login' ? 'Daftar sekarang' : 'Masuk'}</button></div>}
-        <div className="auth-switch"><button onClick={() => { setMode(mode === 'employee' ? 'login' : 'employee'); setError('') }}>{mode === 'employee' ? 'Kembali ke login pemilik' : 'Login sebagai karyawan'}</button></div>
-        <div className="auth-separator"><span /> <small>ATAU COBA DULU</small> <span /></div>
-        <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
-        <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
+        {mode === 'choose' ? <>
+          <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>Masuk ke SEMAR</h2><p>Pilih jenis akun untuk melanjutkan.</p></div>
+          <div className="auth-role-choices">
+            <button className="button button-primary button-wide auth-role-button" onClick={() => { setMode('login'); setError('') }}><ShieldCheck size={18} /><span><strong>Login sebagai Owner / Pemilik</strong><small>Kelola toko dan bisnis Anda</small></span><ChevronRight size={18} /></button>
+            <button className="button button-secondary button-wide auth-role-button" onClick={() => { setMode('employee'); setError('') }}><Users size={18} /><span><strong>Login sebagai Karyawan</strong><small>Masuk menggunakan ID toko</small></span><ChevronRight size={18} /></button>
+          </div>
+          <div className="auth-switch auth-choice-links">Belum memiliki akun? <button onClick={() => { setMode('signup'); setError('') }}>Daftar sekarang</button></div>
+          <button className="button button-secondary button-wide" onClick={onDemo}><Activity size={17} />Buka demo interaktif</button>
+          <p className="auth-footnote">Demo memakai data contoh di perangkat ini dan tidak terhubung ke toko nyata.</p>
+        </> : <>
+          <div className="auth-form-heading"><div className="eyebrow">RUANG KERJA ANDA</div><h2>{mode === 'employee' ? 'Login karyawan' : mode === 'signup' ? 'Daftar akun pemilik' : 'Login Owner / Pemilik'}</h2><p>{mode === 'employee' ? 'Gunakan ID toko dan akun yang diberikan pemilik toko.' : mode === 'signup' ? 'Buat akun untuk memulai dengan SEMAR.' : 'Masuk untuk melanjutkan ke dashboard toko Anda.'}</p></div>
+          <form onSubmit={submit} className="auth-form">
+            {mode === 'signup' && <>
+              <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>
+              <label>Nama toko<input value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="Contoh: Kedai Rona" required /></label>
+            </>}
+            {mode === 'employee' ? <>
+              <label>ID toko<input value={storeCode} onChange={e => setStoreCode(e.target.value.trim())} placeholder="Masukkan ID toko dari pemilik" autoComplete="organization" required /></label>
+              <label>Username<input value={username} onChange={e => setUsername(e.target.value.toLowerCase())} placeholder="username" autoComplete="username" minLength={3} required /></label>
+            </> : <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label>}
+            <label>Kata sandi<div className="password-input"><input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Kata sandi" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button type="button" aria-label="Tampilkan kata sandi" onClick={() => setShowPass(v => !v)}>{showPass ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            {error && <div className="auth-error"><AlertTriangle size={16} />{error}</div>}
+            {!isSupabaseConfigured && <div className="setup-hint"><Cloud size={17} /><span><strong>Mode pratinjau</strong><small>Hubungkan proyek Supabase di file .env agar login dan sinkronisasi aktif.</small></span></div>}
+            <button className="button button-primary button-wide" type="submit" disabled={busy || !isSupabaseConfigured}>{busy ? <span className="spinner" /> : <LockKeyhole size={17} />}{mode === 'employee' ? 'Login sebagai karyawan' : mode === 'signup' ? 'Buat akun dan toko' : 'Login sebagai pemilik'}</button>
+          </form>
+          {mode === 'employee' ? <button className="auth-forgot-link" onClick={() => window.alert('Silakan hubungi owner/pemilik toko Anda untuk meminta reset kata sandi karyawan.')}>Lupa kata sandi?</button> : mode === 'login' ? <div className="auth-owner-forgot-wrap"><button type="button" className="auth-forgot-link" onClick={() => setShowOwnerForgot(v => !v)}>Lupa kata sandi?</button>{showOwnerForgot && <div className="auth-reset-panel"><p>Ajukan reset kata sandi owner</p><label>Username (jika ada)<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} placeholder="Username Anda" /></label><label>Email akun<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" /></label><a className="button button-secondary button-wide" href={`https://wa.me/6289676707976?text=${ownerResetMessage}`} target="_blank" rel="noreferrer"><Send size={16} /> Ajukan reset lewat WhatsApp</a><small>WhatsApp akan terbuka dengan username dan email yang Anda isi.</small></div>}</div> : null}
+          {mode === 'signup' && <div className="auth-switch">Sudah memiliki akun? <button onClick={() => { setMode('login'); setError('') }}>Login</button></div>}
+          <button className="auth-back-button" onClick={back}><ArrowLeft size={16} /> Kembali ke pilihan login</button>
+        </>}
       </div>
       <div className="auth-bottom-note"><ShieldCheck size={14} /> Sesi aman · Akses data dibatasi per toko</div>
     </section>
   </div>
 }
-
 function Modal({ title, subtitle, onClose, children, width = 'normal', noClose = false }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !noClose) onClose?.() }
@@ -150,18 +163,17 @@ function Modal({ title, subtitle, onClose, children, width = 'normal', noClose =
   </div>
 }
 
-function BarcodeScanner({ onDetected, onClose }) {
+function BarcodeScanner({ onDetected }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [cameraError, setCameraError] = useState('')
-  const [manualCode, setManualCode] = useState('')
   const [scanning, setScanning] = useState(false)
   useEffect(() => {
     let active = true
     let interval
     const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Browser ini tidak mendukung akses kamera. Masukkan barcode secara manual.'); return }
-      if (!('BarcodeDetector' in window)) { setCameraError('Pemindai otomatis belum didukung browser ini. Masukkan barcode secara manual.'); return }
+      if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Browser ini tidak mendukung akses kamera. Periksa dukungan kamera pada perangkat.'); return }
+      if (!('BarcodeDetector' in window)) { setCameraError('Pemindai otomatis belum didukung browser ini. Coba gunakan browser yang lebih baru.'); return }
       try {
         const detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'] })
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
@@ -172,12 +184,11 @@ function BarcodeScanner({ onDetected, onClose }) {
           if (!active || !videoRef.current || videoRef.current.readyState < 2) return
           try { const results = await detector.detect(videoRef.current); if (results?.[0]?.rawValue) { active = false; onDetected(results[0].rawValue) } } catch {}
         }, 300)
-      } catch (err) { setCameraError(err?.message?.includes('Permission') ? 'Izin kamera ditolak. Izinkan akses kamera atau masukkan barcode manual.' : 'Kamera tidak dapat dibuka. Masukkan barcode secara manual.') }
+      } catch (err) { setCameraError(err?.message?.includes('Permission') ? 'Izin kamera ditolak. Izinkan akses kamera pada pengaturan browser/perangkat.' : 'Kamera tidak dapat dibuka. Masukkan barcode secara manual.') }
     }
     start()
     return () => { active = false; clearInterval(interval); streamRef.current?.getTracks().forEach(track => track.stop()) }
   }, [onDetected])
-  const submitManual = (e) => { e.preventDefault(); if (manualCode.trim()) onDetected(manualCode.trim()) }
   return <div className="scanner-modal-content">
     <div className="scanner-view">
       <video ref={videoRef} playsInline muted />
@@ -185,7 +196,6 @@ function BarcodeScanner({ onDetected, onClose }) {
       {!scanning && <div className="scanner-empty"><div className="scanner-empty-icon"><ScanLine size={31} /></div><strong>Kamera pemindai</strong><p>{cameraError || 'Menyiapkan kamera belakang…'}</p></div>}
       {scanning && <div className="scanner-instruction">Arahkan barcode ke dalam bingkai</div>}
     </div>
-    <form className="manual-barcode-form" onSubmit={submitManual}><label>Atau masukkan kode secara manual</label><div className="search-input"><Barcode size={17} /><input autoFocus value={manualCode} onChange={e => setManualCode(e.target.value)} placeholder="Ketik barcode / SKU…" /><button type="submit" className="button button-primary button-sm">Gunakan</button></div></form>
   </div>
 }
 
@@ -202,8 +212,8 @@ function EmptyState({ icon: Icon = Package, title, text, action }) {
   return <div className="empty-state"><div className="empty-state-icon"><Icon size={24} /></div><strong>{title}</strong><p>{text}</p>{action}</div>
 }
 
-function KPI({ icon: Icon, label, value, trend, trendLabel, tone = 'green', trendDown = false }) {
-  return <div className="kpi-card"><div className="kpi-top"><span>{label}</span><span className={`kpi-icon ${tone}`}><Icon size={19} /></span></div><strong className="kpi-value">{value}</strong><div className="kpi-foot">{trend !== undefined && <span className={`kpi-trend ${trendDown ? 'down' : 'up'}`}>{trendDown ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{trend}</span>}<span>{trendLabel}</span></div></div>
+function KPI({ icon: Icon, label, value, trend, trendLabel, tone = 'green', trendDown = false, onClick }) {
+  return <button type="button" className={`kpi-card kpi-card-action ${label === 'Total toko' ? 'kpi-total-stores' : ''} ${onClick ? 'is-clickable' : ''}`} onClick={onClick} disabled={!onClick} aria-label={onClick ? `${label}: buka detail` : undefined}><div className="kpi-top"><span>{label}</span><span className={`kpi-icon ${tone}`}><Icon size={19} /></span></div><strong className="kpi-value">{value}</strong><div className="kpi-foot">{trend !== undefined && <span className={`kpi-trend ${trendDown ? 'down' : 'up'}`}>{trendDown ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}{trend}</span>}<span>{trendLabel}</span></div>{onClick && <span className="kpi-shortcut-hint">Buka detail <ArrowRight size={13} /></span>}</button>
 }
 
 function SalesChart({ sales }) {
@@ -255,9 +265,10 @@ function App() {
   const [employees, setEmployees] = useState([])
   const [loadingData, setLoadingData] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const [globalSearch, setGlobalSearch] = useState('')
+  const [transactionSearch, setTransactionSearch] = useState('')
+  const [highlightLowStock, setHighlightLowStock] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState(() => { try { return JSON.parse(localStorage.getItem('semar-read-notifications') || '[]') } catch { return [] } })
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -299,6 +310,7 @@ function App() {
   const [adminAuditLogs, setAdminAuditLogs] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [adminTab, setAdminTab] = useState('owners')
+  const [expandedOwnerIds, setExpandedOwnerIds] = useState([])
   const [adminDirectory, setAdminDirectory] = useState([])
   const [adminDirLoading, setAdminDirLoading] = useState(false)
   const [adminDirError, setAdminDirError] = useState('')
@@ -309,6 +321,42 @@ function App() {
   const toastTimer = useRef(null)
   const storeProvisionPromise = useRef(null)
   const isCashierPage = page === 'cashier'
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      delete document.documentElement.dataset.platform
+      return
+    }
+    const root = document.documentElement
+    root.dataset.platform = 'capacitor'
+    const applyFontBump = (node) => {
+      const elements = []
+      const collect = (element) => {
+        if (!element || element.nodeType !== 1) return
+        const hasDirectText = Array.from(element.childNodes).some(child => child.nodeType === 3 && child.textContent.trim())
+        if (hasDirectText || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName)) {
+          if (!element.hasAttribute('data-native-font-bump')) {
+            const size = parseFloat(window.getComputedStyle(element).fontSize)
+            if (Number.isFinite(size)) elements.push([element, size])
+          }
+        }
+        Array.from(element.children).forEach(collect)
+      }
+      collect(node)
+      elements.forEach(([element, size]) => {
+        element.style.setProperty('--native-font-base-size', `${size}px`)
+        element.setAttribute('data-native-font-bump', '')
+      })
+    }
+    applyFontBump(document.querySelector('.app-shell') || document.body)
+    const observer = new MutationObserver(records => {
+      records.forEach(record => record.addedNodes.forEach(node => {
+        if (node.nodeType === 1) applyFontBump(node)
+      }))
+    })
+    observer.observe(document.querySelector('.app-shell') || document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -523,16 +571,35 @@ function App() {
     if (!isStoreOwner || !currentStore?.id || demo) return showToast('Hanya pemilik toko dapat mengubah informasi toko.', 'error')
     const name = String(storeInfoDraft?.name ?? '').trim()
     const city = String(storeInfoDraft?.city ?? '').trim()
+    const code = String(storeCodeDraft || '').trim().toUpperCase()
     if (!name) return showToast('Nama toko wajib diisi.', 'error')
+    if (!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(code)) return showToast('ID toko harus 3–20 karakter: huruf, angka, dan tanda hubung.', 'error')
     setStoreInfoBusy(true)
     try {
+      let savedCode = currentStore.store_code || code
+      if (code !== String(currentStore.store_code || '').toUpperCase()) {
+        const { data: codeData, error: codeError } = await supabase.rpc('owner_update_store_code', { p_store_id: currentStore.id, p_store_code: code })
+        if (codeError) throw codeError
+        savedCode = codeData?.store_code || code
+      }
       const { data, error } = await supabase.from('stores').update({ name, city }).eq('id', currentStore.id).select('id,name,city').single()
       if (error) throw error
-      setStores(prev => prev.map(store => store.id === currentStore.id ? { ...store, name: data.name, city: data.city } : store))
+      setStores(prev => prev.map(store => store.id === currentStore.id ? { ...store, name: data.name, city: data.city, store_code: savedCode } : store))
       setStoreInfoDraft({ name: data.name, city: data.city || '' })
+      setStoreCodeDraft(savedCode)
       showToast('Informasi toko berhasil diperbarui.')
     } catch (error) { showToast(error?.message || 'Gagal memperbarui informasi toko.', 'error') }
     finally { setStoreInfoBusy(false) }
+  }
+  const copyStoreCode = async () => {
+    const code = String(storeCodeDraft || currentStore?.store_code || currentStore?.id || '').trim()
+    if (!code || code === '—') return
+    try {
+      await navigator.clipboard.writeText(code)
+      showToast('ID toko berhasil disalin.')
+    } catch {
+      showToast('Tidak dapat menyalin otomatis. Tekan lama ID toko lalu pilih Salin.', 'error')
+    }
   }
   const saveStoreCode = async () => {
     const code = String(storeCodeDraft || '').trim().toUpperCase()
@@ -715,27 +782,48 @@ function App() {
   }
 
   const installApp = async () => {
-    if (!deferredPrompt) { showToast('Untuk memasang aplikasi, buka menu browser lalu pilih “Tambahkan ke layar utama”.', 'info'); return }
+    if (!deferredPrompt) { showToast('Untuk memasang PWA, buka menu browser lalu pilih “Tambahkan ke layar utama”.', 'info'); return }
     deferredPrompt.prompt()
     await deferredPrompt.userChoice
     setDeferredPrompt(null)
+  }
+
+  const openAndroidInstall = () => {
+    window.open('https://github.com/r14bz/pos-flow/actions/workflows/android-capacitor.yml', '_blank', 'noopener,noreferrer')
   }
 
   const notifications = useMemo(() => {
     const low = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
     const recent = sales.filter(s => jakartaDateKey(s.created_at) === todayISO() && s.status === 'paid')
     return [
-      ...low.slice(0, 5).map(p => ({ id: `low-${p.id}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti' })),
-      ...(recent.length ? [{ id: 'daily-report', type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis' }] : []),
+      ...low.slice(0, 5).map(p => ({ id: `low-${storeId}-${p.id}-${p.stock}`, type: 'warning', title: 'Stok menipis', body: `${p.name} tersisa ${p.stock} ${p.unit || 'unit'}`, time: 'Perlu ditindaklanjuti', action: 'inventory', actionLabel: 'Lihat stok' })),
+      ...(recent.length ? [{ id: `daily-report-${storeId}`, type: 'success', title: 'Ringkasan penjualan hari ini', body: `${recent.length} transaksi · ${idr(recent.reduce((a, s) => a + Number(s.total || 0), 0))}`, time: 'Diperbarui otomatis', action: 'reports', actionLabel: 'Lihat laporan' }] : []),
     ]
-  }, [products, sales])
+  }, [products, sales, storeId])
+
+  const markNotificationRead = (id) => {
+    setReadNotificationIds(previous => {
+      const next = previous.includes(id) ? previous : [...previous, id]
+      try { localStorage.setItem('semar-read-notifications', JSON.stringify(next.slice(-300))) } catch { /* storage may be unavailable */ }
+      return next
+    })
+  }
+  const markAllNotificationsRead = () => {
+    const ids = notifications.map(item => item.id)
+    setReadNotificationIds(previous => {
+      const next = [...new Set([...previous, ...ids])].slice(-300)
+      try { localStorage.setItem('semar-read-notifications', JSON.stringify(next)) } catch { /* storage may be unavailable */ }
+      return next
+    })
+  }
+  const unreadNotificationCount = notifications.filter(item => !readNotificationIds.includes(item.id)).length
 
   const categories = useMemo(() => ['Semua', ...new Set(products.map(p => p.category).filter(Boolean))], [products])
   const filteredProducts = useMemo(() => products.filter(p => {
     const query = stockSearch.trim().toLowerCase()
     const matchesQuery = !query || [p.name, p.sku, p.barcode, p.category].some(x => String(x || '').toLowerCase().includes(query))
-    return matchesQuery && (stockCategory === 'Semua' || p.category === stockCategory)
-  }), [products, stockSearch, stockCategory])
+    return matchesQuery && (stockCategory === 'Semua' || p.category === stockCategory) && (!highlightLowStock || Number(p.stock || 0) <= Number(p.min_stock ?? 5))
+  }), [products, stockSearch, stockCategory, highlightLowStock])
 
   const addToCart = (product) => {
     const existing = cart.find(i => i.product.id === product.id)
@@ -794,7 +882,7 @@ function App() {
         if (saleError) throw saleError
         sale = normaliseSale(data)
         await loadStoreData(storeId)
-        for (const line of sale.sale_items || []) if (line.product_id) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: line.product_id } }).catch(() => {})
+        for (const line of sale.sale_items || []) if (line.product_id) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: line.product_id } }).then(({ data, error }) => { if (error) throw error; if (data?.sent === 0) console.warn('[SEMAR push] Stok menipis tersimpan, tetapi belum ada push yang terkirim.', data) }).catch(error => console.error('[SEMAR push] Gagal mengirim notifikasi stok menipis:', error))
       }
       setCart([]); setCartDiscount('0'); setCashReceived('')
       setModal({ type: 'receipt', sale })
@@ -918,7 +1006,7 @@ function App() {
         const { error } = await supabase.rpc('adjust_stock', { p_store_id: storeId, p_product_id: stockDraft.product_id, p_qty_delta: delta, p_note: stockDraft.note || 'Penyesuaian stok manual' })
         if (error) throw error
         await loadStoreData(storeId)
-        if (Number(product.stock) + delta <= Number(product.min_stock ?? 5)) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: product.id } }).catch(() => {})
+        if (Number(product.stock) + delta <= Number(product.min_stock ?? 5)) supabase.functions.invoke('notify-low-stock', { body: { store_id: storeId, product_id: product.id } }).then(({ data, error }) => { if (error) throw error; if (data?.sent === 0) showToast('Stok tersimpan, tetapi push belum terkirim. Periksa konfigurasi Firebase dan perangkat.', 'info') }).catch(error => { console.error('[SEMAR push] Gagal mengirim notifikasi stok menipis:', error); showToast('Stok tersimpan, tetapi notifikasi HP gagal dikirim. Periksa log fungsi notify-low-stock.', 'error') })
       }
       setModal(null); showToast('Stok berhasil diperbarui.')
     } catch (err) { showToast(err?.message || 'Penyesuaian stok gagal.', 'error') }
@@ -1049,41 +1137,114 @@ function App() {
     showToast('File Excel berhasil diunduh.')
   }
 
-  const printReceipt = (sale) => {
+  const printReceipt = async (sale) => {
     if (!sale) return
     const items = sale.sale_items || []
     const content = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Struk ${sale.receipt_no}</title><style>
       *{box-sizing:border-box}body{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;width:280px;margin:0 auto;padding:12px}h1{font:700 18px Arial;text-align:center;margin:0}p{margin:3px 0;text-align:center}.line{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;gap:10px}.item{margin:8px 0}.item small{display:block;color:#555}.total{font-size:15px;font-weight:bold}.muted{color:#666;font-size:11px}.receipt-actions{font:600 15px Arial;display:grid;gap:10px;width:min(100%,420px);margin:24px auto 12px}.receipt-actions button{border:0;border-radius:10px;padding:14px 16px;background:#08765f;color:white;font-weight:700;font-size:15px;min-height:48px}.receipt-actions .secondary{background:#fff;color:#153c34;border:1px solid #d5dedb}.receipt-actions .hint{text-align:center;font:12px Arial;color:#66736f;margin:0}@media print{body{width:auto;padding:0}.receipt-actions{display:none}@page{margin:5mm}}
       </style></head><body><h1>${escapeHtml(currentStore?.name || 'SEMAR')}</h1><p>${escapeHtml(currentStore?.city || '')}</p><div class="line"></div><div class="row"><span>Struk</span><span>${escapeHtml(sale.receipt_no || '-')}</span></div><div class="row"><span>Waktu</span><span>${new Date(sale.created_at).toLocaleString('id-ID')}</span></div><div class="row"><span>Kasir</span><span>${escapeHtml(sale.cashier_name || displayName)}</span></div><div class="line"></div>${items.map(i=>`<div class="item"><div>${escapeHtml(i.product_name || i.name || 'Barang')}</div><div class="row"><small>${i.qty} x ${money(i.unit_price)}</small><span>${money(i.subtotal ?? i.qty*i.unit_price)}</span></div></div>`).join('')}<div class="line"></div><div class="row"><span>Subtotal</span><span>${money(sale.subtotal || sale.total)}</span></div><div class="row"><span>Diskon</span><span>-${money(sale.discount || 0)}</span></div><div class="row total"><span>TOTAL</span><span>${money(sale.total)}</span></div><div class="row"><span>Bayar</span><span>${paymentLabel(sale.payment_method)}</span></div><div class="line"></div><p>Terima kasih sudah berbelanja!</p><p class="muted">Powered by SEMAR</p><div class="receipt-actions"><button onclick="returnToCashier()">← Kembali ke Kasir</button><button class="secondary" onclick="window.print()">Cetak Ulang Struk</button><p class="hint">Gunakan tombol ini untuk kembali ke halaman kasir.</p></div><script>function returnToCashier(){try{if(window.opener&&!window.opener.closed){window.opener.postMessage({type:'POSFLOW_RETURN_TO_CASHIER'},location.origin);window.close();return}}catch(e){}window.close()}window.onload=()=>{window.print()}</script></body></html>`
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await NativePrinter.printHtml({ name: `SEMAR-${sale.receipt_no || 'Struk'}`, html: content })
+        return
+      } catch (error) {
+        showToast(error?.message || 'Dialog cetak tidak dapat dibuka di perangkat ini.', 'error')
+        return
+      }
+    }
     const win = window.open('', '_blank', 'width=360,height=720')
     if (!win) { showToast('Izinkan pop-up untuk mencetak struk.', 'error'); return }
     win.document.open(); win.document.write(content); win.document.close()
   }
 
   const enablePush = async () => {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi.', 'error')
+    if (demo) {
+      if ('Notification' in window && Notification.permission !== 'denied') {
+        const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+        if (permission === 'granted') new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' })
+      }
+      showToast('Notifikasi demo diaktifkan untuk sesi ini.')
+      return
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        let permission = await PushNotifications.checkPermissions()
+        if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions()
+        if (permission.receive !== 'granted') return showToast('Izin notifikasi Android belum diberikan.', 'error')
+        await PushNotifications.removeAllListeners()
+        await PushNotifications.addListener('registration', async ({ value: token }) => {
+          try {
+            const { error } = await supabase.from('fcm_tokens').upsert({
+              user_id: session.user.id,
+              store_id: storeId || null,
+              token,
+              platform: 'android',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'token' })
+            if (error) throw error
+            showToast('Notifikasi Android berhasil diaktifkan.')
+          } catch (err) {
+            showToast(err?.message || 'Token notifikasi gagal disimpan.', 'error')
+          }
+        })
+        await PushNotifications.addListener('registrationError', (event) => {
+          showToast(event?.error || 'Pendaftaran notifikasi Firebase gagal.', 'error')
+        })
+        await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
+          const destination = String(event?.notification?.data?.url || '')
+          if (destination.includes('inventory')) navigate('inventory')
+          else if (destination.includes('reports')) navigate('reports')
+          else navigate('dashboard')
+        })
+        await PushNotifications.register()
+        showToast('Izin diberikan. Mendaftarkan perangkat ke Firebase…', 'info')
+      } catch (err) {
+        showToast(err?.message || 'Gagal mengaktifkan notifikasi Android.', 'error')
+      }
+      return
+    }
+
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return showToast('Browser ini belum mendukung notifikasi web.', 'error')
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return showToast('Izin notifikasi belum diberikan.', 'error')
-    if (demo) { new Notification('SEMAR', { body: 'Notifikasi demo berhasil diaktifkan.' }); showToast('Notifikasi perangkat diaktifkan untuk sesi ini.'); return }
     const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY
-    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push di latar belakang.', 'error')
+    if (!vapid) return showToast('Tambahkan VITE_VAPID_PUBLIC_KEY untuk mengaktifkan push web di latar belakang.', 'error')
     try {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) })
       const json = subscription.toJSON()
       const { error } = await supabase.from('push_subscriptions').upsert({ user_id: session.user.id, store_id: storeId || null, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }, { onConflict: 'endpoint' })
       if (error) throw error
-      showToast('Push notification berhasil diaktifkan.')
-    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification.', 'error') }
+      showToast('Push notification web berhasil diaktifkan.')
+    } catch (err) { showToast(err?.message || 'Gagal mengaktifkan push notification web.', 'error') }
   }
 
   const openPrinter = async () => {
-    if (!navigator.bluetooth) return showToast('Web Bluetooth tidak tersedia di browser ini. Coba Chrome Android atau gunakan tombol Cetak struk.', 'error')
     try {
+      if (Capacitor.isNativePlatform()) {
+        await BleClient.initialize({ androidNeverForLocation: true })
+        const enabled = await BleClient.isEnabled()
+        if (!enabled) {
+          await BleClient.requestEnable()
+        }
+        const device = await BleClient.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        })
+        showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Perangkat ini harus mendukung BLE agar bisa ditemukan di sini.`, 'info')
+        return
+      }
+      if (!navigator.bluetooth) {
+        showToast('Browser ini tidak mendukung Web Bluetooth. Buka SEMAR dalam aplikasi Android untuk mencari perangkat BLE.', 'error')
+        return
+      }
       const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] })
-      showToast(`Printer ${device.name || 'Bluetooth'} terdeteksi. Kompatibilitas cetak bergantung pada profil BLE printer.`, 'info')
-      // A printer picker is intentionally not treated as proof of printing support.
-    } catch (err) { if (err?.name !== 'NotFoundError') showToast(err?.message || 'Gagal menghubungkan printer.', 'error') }
+      showToast(`Perangkat ${device.name || 'Bluetooth'} terdeteksi. Pastikan printer mendukung BLE.`, 'info')
+    } catch (err) {
+      if (err?.name === 'NotFoundError' || err?.message?.toLowerCase?.().includes('cancel')) return
+      showToast(err?.message || 'Bluetooth tidak dapat diakses. Periksa izin Bluetooth dan lokasi pada pengaturan Android.', 'error')
+    }
   }
 
   const selectedReportSales = sales.filter(s => {
@@ -1096,6 +1257,32 @@ function App() {
   const currentMonthRevenue = currentMonthSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
   const todaySales = sales.filter(s => s.status === 'paid' && jakartaDateKey(s.created_at) === todayISO())
   const todayRevenue = todaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)
+  const todaySoldProducts = useMemo(() => {
+    const items = new Map()
+    todaySales.forEach(sale => (sale.sale_items || []).forEach(item => {
+      const key = item.product_id || item.product_name || item.name || 'barang'
+      const current = items.get(key) || { key, name: item.product_name || item.name || 'Barang', qty: 0, revenue: 0 }
+      const qty = Number(item.qty || 0)
+      current.qty += qty
+      current.revenue += Number(item.subtotal ?? qty * Number(item.unit_price || 0))
+      items.set(key, current)
+    }))
+    return [...items.values()].sort((a, b) => b.qty - a.qty)
+  }, [todaySales])
+  const todaySoldColors = ['#0d8a67', '#e7b35b', '#8b7bd4', '#4d9de0']
+  const todaySoldProductsDonut = (() => {
+    const total = todaySoldProducts.reduce((sum, item) => sum + item.qty, 0)
+    if (!total) return '#e7ebef'
+    let start = 0
+    const segments = todaySoldProducts.slice(0, 4).map((item, i) => {
+      const end = start + item.qty / total * 100
+      const segment = `${todaySoldColors[i]} ${start}% ${end}%`
+      start = end
+      return segment
+    })
+    if (todaySoldProducts.length > 4) segments.push(`#c4d1cc ${start}% 100%`)
+    return `conic-gradient(${segments.join(', ')})`
+  })()
   const lowStockProducts = products.filter(p => Number(p.stock) <= Number(p.min_stock ?? 5))
   const topProducts = useMemo(() => {
     const map = new Map()
@@ -1106,17 +1293,17 @@ function App() {
   const switchStore = (id) => { setStoreId(id); setCart([]); setProducts([]); setSales([]); setEmployees([]); showToast(`Beralih ke ${stores.find(s => s.id === id)?.name || 'toko'}.`) }
 
   const renderDashboard = () => <>
-    <PageTitle eyebrow="RINGKASAN BISNIS" title={`Selamat ${new Date().getHours() < 11 ? 'pagi' : new Date().getHours() < 15 ? 'siang' : new Date().getHours() < 19 ? 'sore' : 'malam'}, ${displayName.split(' ')[0]}`} description="Pantau performa toko Anda hari ini." actions={<button className="button button-secondary" onClick={() => { setReportDate(todayISO()); navigate('reports') }}><CalendarDays size={16} /> Laporan hari ini</button>} />
+    <PageTitle eyebrow="RINGKASAN BISNIS" title={`Selamat ${new Date().getHours() < 11 ? 'pagi' : new Date().getHours() < 15 ? 'siang' : new Date().getHours() < 19 ? 'sore' : 'malam'}, ${displayName.split(' ')[0]}`} description="Pantau performa toko Anda hari ini." actions={<button className="button button-primary dashboard-today-report-button" onClick={() => { setReportDate(todayISO()); navigate('reports') }}><CalendarDays size={16} /> Laporan hari ini</button>} />
     <div className="kpi-grid">
-      <KPI icon={Wallet} label="Penjualan hari ini" value={idr(todayRevenue)} trend={demo ? '12,8%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : `${todaySales.length} transaksi berhasil`} tone="green" />
-      <KPI icon={ShoppingBag} label="Total transaksi" value={todaySales.length.toLocaleString('id-ID')} trend={demo ? '8,2%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : 'transaksi hari ini'} tone="blue" />
-      <KPI icon={Package} label="Produk terdaftar" value={products.length.toLocaleString('id-ID')} trendLabel={`${products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')} total unit stok`} tone="purple" />
-      <KPI icon={AlertTriangle} label="Stok menipis" value={lowStockProducts.length.toLocaleString('id-ID')} trendLabel="Perlu restock segera" tone="amber" trendDown />
+      <KPI icon={Wallet} label="Penjualan hari ini" value={idr(todayRevenue)} trend={demo ? '12,8%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : `${todaySales.length} transaksi berhasil`} tone="green" onClick={() => { setReportDate(todayISO()); navigate('reports') }} />
+      <KPI icon={ShoppingBag} label="Total transaksi" value={todaySales.length.toLocaleString('id-ID')} trend={demo ? '8,2%' : undefined} trendLabel={demo ? 'vs. hari sebelumnya' : 'transaksi hari ini'} tone="blue" onClick={() => navigate('transactions')} />
+      <KPI icon={Package} label="Produk terdaftar" value={products.length.toLocaleString('id-ID')} trendLabel={`${products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')} total unit stok`} tone="purple" onClick={() => navigate('inventory')} />
+      <KPI icon={AlertTriangle} label="Stok menipis" value={lowStockProducts.length.toLocaleString('id-ID')} trendLabel="Perlu restock segera" tone="amber" trendDown onClick={() => navigate('inventory')} />
     </div>
     <div className="dashboard-grid dashboard-grid-primary">
       <section className="panel chart-panel"><div className="panel-heading"><div><h3>Tren penjualan</h3><p>Performa tujuh hari terakhir</p></div><div className="chart-legend"><span /> Penjualan</div></div><SalesChart sales={sales} /><div className="chart-summary"><div><span>Total penjualan hari ini</span><strong>{idr(todayRevenue)}</strong></div><div className="chart-summary-divider" /><div><span>Rata-rata transaksi</span><strong>{idr(todaySales.length ? todayRevenue / todaySales.length : 0)}</strong></div></div></section>
-      <section className="panel payment-panel"><div className="panel-heading"><div><h3>Metode pembayaran</h3><p>Komposisi transaksi hari ini</p></div><button className="text-action" onClick={() => navigate('reports')}>Detail <ArrowRight size={14} /></button></div>
-        {todaySales.length ? <><div className="payment-donut-wrap"><div className="payment-donut"><div><strong>{todaySales.length}</strong><small>transaksi</small></div></div><div className="payment-legend">{['cash', 'qris', 'transfer'].map((method, i) => { const count = todaySales.filter(s => s.payment_method === method).length; return <div key={method}><span className={`legend-dot legend-${method}`} /><span>{paymentLabel(method)}</span><strong>{Math.round(count / todaySales.length * 100)}%</strong></div> })}</div></div><div className="payment-panel-total"><span>Omzet hari ini</span><strong>{idr(todayRevenue)}</strong></div></> : <EmptyState icon={CreditCard} title="Belum ada transaksi" text="Transaksi yang tercatat hari ini akan muncul di sini." action={<button className="text-action" onClick={() => navigate('cashier')}>Buka kasir <ArrowRight size={14} /></button>} />}
+      <section className="panel payment-panel"><div className="panel-heading"><div><h3>Barang terjual hari ini</h3><p>Komposisi jumlah unit per barang</p></div><button className="text-action" onClick={() => { setReportDate(todayISO()); navigate('reports') }}>Detail <ArrowRight size={14} /></button></div>
+        {todaySoldProducts.length ? <><div className="payment-donut-wrap"><div className="payment-donut" style={{ background: todaySoldProductsDonut }}><div><strong>{todaySoldProducts.reduce((sum, item) => sum + item.qty, 0).toLocaleString('id-ID')}</strong><small>unit terjual</small></div></div><div className="payment-legend">{todaySoldProducts.slice(0, 4).map((item, i) => <div key={item.key}><span className={`legend-dot legend-product legend-product-${i}`} /><span title={item.name}>{item.name}</span><strong>{Math.round(item.qty / todaySoldProducts.reduce((sum, p) => sum + p.qty, 0) * 100)}%</strong></div>)}</div></div><div className="payment-panel-total"><span>Omzet hari ini</span><strong>{idr(todayRevenue)}</strong></div></> : <EmptyState icon={Package} title="Belum ada barang terjual" text="Barang yang terjual hari ini akan muncul di sini." action={<button className="text-action" onClick={() => navigate('cashier')}>Buka kasir <ArrowRight size={14} /></button>} />}
       </section>
     </div>
     <div className="dashboard-grid dashboard-grid-secondary">
@@ -1160,9 +1347,7 @@ function App() {
       <section className="cashier-scan-panel">
         <div className="cashier-header"><div><div className="eyebrow">MODE KASIR</div><h1>Transaksi baru</h1><p>Scan barcode, ketik nomor/SKU, atau cari nama produk.</p></div><div className="cashier-status"><span className="live-dot" /> Kasir aktif</div></div>
         <div className="cashier-scan-box">
-          <div className="cashier-scan-icon"><ScanLine size={38} /></div>
-          <h2>Tambah produk</h2>
-          <p>Scan barcode dengan scanner, atau ketik nomor/SKU/nama produk untuk mencari.</p>
+          <div className="cashier-scan-heading"><div className="cashier-scan-icon"><ScanLine size={38} /></div><h2>Tambah Produk</h2></div>
           <form className="cashier-barcode-form" onSubmit={submitBarcode}>
             <div className="search-input cashier-search cashier-barcode-input"><Search size={19} /><input autoFocus value={cartSearch} onChange={e => setCartSearch(e.target.value)} placeholder="Scan barcode / cari nomor atau nama…" aria-label="Cari produk dengan barcode, nomor, SKU, atau nama" /><button type="submit" className="button button-primary">Tambah</button></div>
             {cashierMatches.length > 0 && <div className="cashier-product-suggestions" role="listbox" aria-label="Hasil pencarian produk">
@@ -1174,14 +1359,13 @@ function App() {
               </button>)}
             </div>}
           </form>
-          <button className="button button-secondary cashier-camera-button" type="button" onClick={() => showScanner('cashier')}><Camera size={18} /> Buka kamera scanner</button>
-          <div className="cashier-scan-note"><Search size={15} /><span>Daftar produk tetap disembunyikan. Hasil hanya muncul sesuai kata yang sedang dicari.</span></div>
+          <button className="button button-primary cashier-camera-button" type="button" onClick={() => showScanner('cashier')}><Camera size={18} /> Buka kamera scanner</button>
         </div>
       </section>
       <aside className="cart-panel"><div className="cart-heading"><div><h2><ShoppingCart size={19} /> Keranjang</h2><p>{cart.reduce((a, i) => a + i.qty, 0)} item dipilih</p></div><button className="text-action" disabled={!cart.length} onClick={() => { setCart([]); setCartDiscount('0'); setCashReceived('') }}>Kosongkan</button></div>
         <div className="cart-items">{cart.map(({ product, qty }) => <div className="cart-item" key={product.id}><ProductVisual product={product} /><div className="cart-item-details"><strong>{product.name}</strong><small>{idr(product.price)} / {product.unit || 'unit'}</small><div className="qty-control"><button onClick={() => changeCartQty(product.id, qty - 1)} aria-label="Kurangi jumlah"><Minus size={13} /></button><span>{qty}</span><button onClick={() => changeCartQty(product.id, qty + 1)} aria-label="Tambah jumlah"><Plus size={13} /></button></div></div><div className="cart-item-price"><strong>{idr(product.price * qty)}</strong><button onClick={() => changeCartQty(product.id, 0)} aria-label={`Hapus ${product.name}`}><Trash2 size={14} /></button></div></div>)}{!cart.length && <div className="cart-empty"><div><ShoppingCart size={24} /></div><strong>Keranjang masih kosong</strong><p>Pilih barang dari daftar untuk memulai transaksi.</p></div>}</div>
         <div className="cart-bottom"><div className="discount-row"><span>Diskon transaksi</span><div className="discount-input"><span>Rp</span><input inputMode="numeric" value={cartDiscount} onChange={e => setCartDiscount(e.target.value.replace(/[^0-9]/g, ''))} aria-label="Diskon rupiah" /></div></div><div className="cart-summary-row"><span>Subtotal</span><strong>{idr(cartSubtotal)}</strong></div><div className="cart-summary-row"><span>Diskon</span><strong className="discount-text">−{idr(discountAmount)}</strong></div><div className="cart-total-row"><span>Total bayar</span><strong>{idr(cartTotal)}</strong></div>
-          <div className="payment-selector-label">Pilih metode pembayaran</div><div className="checkout-methods"><button className={paymentMethod === 'cash' ? 'selected' : ''} onClick={() => setPaymentMethod('cash')}><Banknote size={17} /><span>Tunai</span></button><button className={paymentMethod === 'qris' ? 'selected' : ''} onClick={() => setPaymentMethod('qris')}><QrCode size={17} /><span>QRIS</span></button><button className={paymentMethod === 'transfer' ? 'selected' : ''} onClick={() => setPaymentMethod('transfer')}><CreditCard size={17} /><span>Transfer</span></button></div>
+          <div className="payment-selector-label">Pilih metode pembayaran</div><div className="checkout-methods"><button className={paymentMethod === 'cash' ? 'selected' : ''} onClick={() => setPaymentMethod('cash')}><Banknote size={17} /><span>Tunai</span></button><button className={paymentMethod === 'qris' ? 'selected' : ''} onClick={() => setPaymentMethod('qris')}><QrCode size={17} /><span>QRIS</span></button></div>
           {paymentMethod === 'qris' && !demo && qrisSavedSettings?.mode === 'both' && <div className="qris-mode-choice"><label><input type="radio" name="qris-mode" checked={qrisCheckoutMode === 'static'} onChange={() => setQrisCheckoutMode('static')} /> QRIS statis <small>Konfirmasi manual</small></label><label><input type="radio" name="qris-mode" checked={qrisCheckoutMode === 'dynamic'} onChange={() => setQrisCheckoutMode('dynamic')} /> QRIS dinamis <small>Konfirmasi otomatis</small></label></div>}
           {paymentMethod === 'cash' && cart.length > 0 && <div className="cash-received"><label>Uang diterima</label><div className="discount-input"><span>Rp</span><input inputMode="numeric" value={cashReceived} onChange={e => setCashReceived(e.target.value.replace(/[^0-9]/g, ''))} placeholder={String(cartTotal)} /></div><small>Kembalian <strong>{idr(Math.max(0, Number(cashReceived || 0) - cartTotal))}</strong></small></div>}
           <button className="button button-primary button-wide checkout-button" disabled={!cart.length || checkoutBusy || (paymentMethod === 'cash' && cashReceived !== '' && Number(cashReceived) < cartTotal)} onClick={checkout}>{checkoutBusy ? <span className="spinner" /> : paymentMethod === 'qris' ? <QrCode size={18} /> : <CheckCircle2 size={18} />}{paymentMethod === 'qris' ? 'Lanjut ke pembayaran QRIS' : 'Selesaikan transaksi'} <ArrowRight size={17} /></button>
@@ -1193,10 +1377,11 @@ function App() {
 
   const renderInventory = () => <>
     <PageTitle eyebrow="MANAJEMEN BARANG" title="Inventaris" description="Pantau stok, harga jual, dan kode barcode barang." actions={<><button className="button button-secondary" onClick={() => showScanner('inventory')}><ScanLine size={17} /> Scan barcode</button><button className="button button-primary" onClick={openAddProduct}><Plus size={17} /> Tambah barang</button></>} />
-    <div className="inventory-stat-row"><div className="inventory-stat"><span className="inventory-stat-icon green"><Boxes size={19} /></span><div><small>Total jenis barang</small><strong>{products.length}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon blue"><Package size={19} /></span><div><small>Total unit stok</small><strong>{products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon amber"><AlertTriangle size={19} /></span><div><small>Stok menipis</small><strong>{lowStockProducts.length}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon purple"><CircleDollarSign size={19} /></span><div><small>Nilai stok (harga modal)</small><strong>{idr(products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0))}</strong></div></div></div>
-    <section className="panel inventory-panel"><div className="inventory-toolbar"><div className="search-input inventory-search"><Search size={17} /><input value={stockSearch} onChange={e => setStockSearch(e.target.value)} placeholder="Cari nama barang, SKU, barcode…" />{stockSearch && <button onClick={() => setStockSearch('')} aria-label="Hapus pencarian"><X size={14} /></button>}</div><div className="toolbar-right"><select value={stockCategory} onChange={e => setStockCategory(e.target.value)} aria-label="Filter kategori">{categories.map(cat => <option key={cat}>{cat}</option>)}</select><span className="result-count">{filteredProducts.length} barang</span></div></div>
+    <div className="inventory-stat-row"><div className="inventory-stat inventory-stat-total-types"><span className="inventory-stat-icon green"><Boxes size={19} /></span><div><small>Total jenis barang</small><strong>{products.length}</strong></div></div><div className="inventory-stat"><span className="inventory-stat-icon blue"><Package size={19} /></span><div><small>Total unit stok</small><strong>{products.reduce((a, p) => a + Number(p.stock || 0), 0).toLocaleString('id-ID')}</strong></div></div><button type="button" className={`inventory-stat inventory-stat-action inventory-stat-lowstock ${highlightLowStock ? 'is-active' : ''}`} onClick={() => { setHighlightLowStock(true); window.setTimeout(() => document.getElementById('inventory-low-stock-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} aria-pressed={highlightLowStock}><span className="inventory-stat-icon amber"><AlertTriangle size={19} /></span><div><small>Stok menipis</small><strong>{lowStockProducts.length}</strong><span className="inventory-stat-hint">Lihat barang</span></div></button><div className="inventory-stat"><span className="inventory-stat-icon purple"><CircleDollarSign size={19} /></span><div><small>Nilai stok</small><strong>{idr(products.reduce((a, p) => a + Number(p.stock || 0) * Number(p.cost || 0), 0))}</strong></div></div></div>
+    <section id="inventory-low-stock-list" className={`panel inventory-panel ${highlightLowStock ? 'inventory-low-stock-active' : ''}`}><div className="inventory-toolbar"><div className="search-input inventory-search"><Search size={17} /><input value={stockSearch} onChange={e => setStockSearch(e.target.value)} placeholder="Cari nama barang, SKU, barcode…" />{stockSearch && <button onClick={() => setStockSearch('')} aria-label="Hapus pencarian"><X size={14} /></button>}</div><div className="toolbar-right"><select value={stockCategory} onChange={e => setStockCategory(e.target.value)} aria-label="Filter kategori">{categories.map(cat => <option key={cat}>{cat}</option>)}</select><span className="result-count">{filteredProducts.length} barang</span>{highlightLowStock && <button className="button button-secondary button-sm" onClick={() => setHighlightLowStock(false)}><X size={14} /> Tampilkan semua</button>}</div></div>
+      {highlightLowStock && <div className="inventory-low-stock-notice"><AlertTriangle size={16} /> Menampilkan barang dengan stok di bawah atau sama dengan batas minimum.</div>}
       <div className="inventory-table-wrap"><table className="data-table inventory-table"><thead><tr><th>Nama barang</th><th>SKU / Barcode</th><th>Kategori</th><th>Harga jual</th><th>Stok saat ini</th><th>Status</th><th><span className="sr-only">Aksi</span></th></tr></thead><tbody>{filteredProducts.map(p => <tr key={p.id}><td><div className="table-product"><ProductVisual product={p} /><div><strong>{p.name}</strong><small>Modal {idr(p.cost || 0)}</small></div></div></td><td><strong className="mono-text">{p.sku || '—'}</strong><small className="table-subtext">{p.barcode || 'Tanpa barcode'}</small></td><td><span className="category-label">{p.category || 'Lainnya'}</span></td><td><strong>{idr(p.price)}</strong><button className="inline-edit" onClick={() => openPriceEdit(p)}><Pencil size={11} /> Ubah harga</button><button className="inline-edit" onClick={() => openProductEdit(p)}><Pencil size={11} /> Edit produk</button></td><td><div className="stock-level"><strong className={p.stock <= p.min_stock ? 'danger-text' : ''}>{p.stock}</strong><span>{p.unit || 'unit'}</span></div><small className="table-subtext">Min. {p.min_stock ?? 5}</small></td><td>{p.stock <= 0 ? <StatusPill status="cancelled" /> : p.stock <= p.min_stock ? <span className="stock-pill warning"><i /> Menipis</span> : <span className="stock-pill okay"><i /> Aman</span>}</td><td><div className="table-actions"><button className="button button-outline button-xs" onClick={() => openStockEdit(p)}><PackagePlus size={14} /> Stok</button><button className="icon-button tiny" aria-label={`Edit produk ${p.name}`} onClick={() => openProductEdit(p)}><Pencil size={16} /></button><button className="icon-button tiny danger-action" aria-label={`Hapus ${p.name}`} onClick={() => deleteProduct(p)}><Trash2 size={16} /></button></div></td></tr>)}</tbody></table></div>
-      <div className="mobile-product-list">{filteredProducts.map(p => <div className="mobile-inventory-card" key={p.id}><div className="mobile-inventory-top"><ProductVisual product={p} large /><div className="mobile-inventory-name"><strong>{p.name}</strong><small>{p.sku || 'Tanpa SKU'} · {p.category || 'Lainnya'}</small><span>{p.barcode || 'Barcode belum diatur'}</span></div><button className="icon-button tiny" onClick={() => openProductEdit(p)} aria-label={`Edit produk ${p.name}`}><Pencil size={16} /></button></div><div className="mobile-inventory-bottom"><span><small>Harga jual</small><strong>{idr(p.price)}</strong></span><span><small>Stok tersedia</small><strong className={p.stock <= p.min_stock ? 'danger-text' : ''}>{p.stock} {p.unit || 'unit'}</strong></span><button className="button button-outline button-sm" onClick={() => openStockEdit(p)}><PackagePlus size={14} /> Update stok</button><button className="button button-outline button-sm" onClick={() => openProductEdit(p)}><Pencil size={14} /> Edit</button><button className="button button-outline button-sm" onClick={() => deleteProduct(p)}><Trash2 size={14} /> Hapus</button></div></div>)}</div>
+      <div className="mobile-product-list">{filteredProducts.map(p => <div className="mobile-inventory-card" key={p.id}><div className="mobile-inventory-top"><ProductVisual product={p} large /><div className="mobile-inventory-name"><strong>{p.name}</strong><small>{p.sku || 'Tanpa SKU'} · {p.category || 'Lainnya'}</small><span>{p.barcode || 'Barcode belum diatur'}</span></div><button className="mobile-inventory-edit" onClick={() => openProductEdit(p)} aria-label={`Edit produk ${p.name}`}><Pencil size={14} /><span>Edit</span></button></div><div className="mobile-inventory-bottom"><span><small>Harga jual</small><strong>{idr(p.price)}</strong></span><span><small>Stok tersedia</small><strong className={p.stock <= p.min_stock ? 'danger-text' : ''}>{p.stock} {p.unit || 'unit'}</strong></span><button className="button button-outline button-sm" onClick={() => openStockEdit(p)}><PackagePlus size={14} /> Update stok</button><button className="button button-outline button-sm" onClick={() => deleteProduct(p)}><Trash2 size={14} /> Hapus</button></div></div>)}</div>
       {!filteredProducts.length && <EmptyState icon={Package} title="Barang tidak ditemukan" text="Ubah filter atau tambahkan barang baru." action={<button className="button button-primary button-sm" onClick={openAddProduct}><Plus size={15} /> Tambah barang</button>} />}
       <div className="table-footer"><span>Stok disinkronkan otomatis untuk anggota toko dengan akses yang sesuai.</span><span><span className="live-dot" /> Sinkronisasi aktif</span></div>
     </section>
@@ -1222,19 +1407,25 @@ function App() {
     }
   }
 
-  const renderTransactions = () => <>
-    <PageTitle eyebrow="RIWAYAT PENJUALAN" title="Transaksi" description="Lihat dan telusuri seluruh transaksi toko." actions={<button className="button button-secondary" onClick={() => { setReportDate(todayISO()); exportExcel('daily') }}><Download size={16} /> Ekspor Excel hari ini</button>} />
-    <section className="panel transactions-panel"><div className="panel-heading"><div><h3>Semua transaksi</h3><p>{sales.length} transaksi tercatat di toko ini</p></div><div className="transaction-filter-info"><span className="live-dot" /> Data terbaru</div></div>
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{sales.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
-      {!sales.length && <EmptyState icon={ReceiptText} title="Belum ada transaksi" text="Transaksi yang berhasil di kasir akan muncul di halaman ini." action={<button className="button button-primary button-sm" onClick={() => navigate('cashier')}>Buka kasir</button>} />}
-      <div className="table-footer"><span>Transaksi yang menunggu pembayaran QRIS tidak dihitung sebagai penjualan berhasil.</span><button className="text-action" onClick={() => navigate('reports')}>Lihat laporan <ArrowRight size={14} /></button></div>
-    </section>
-  </>
+  const renderTransactions = () => {
+    const term = transactionSearch.trim().toLocaleLowerCase('id-ID')
+    const filteredTransactions = sales.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).filter(s => !term || String(s.receipt_no || '').toLocaleLowerCase('id-ID').includes(term))
+    return <>
+      <PageTitle eyebrow="RIWAYAT PENJUALAN" title="Transaksi" description="Lihat dan telusuri seluruh transaksi toko." actions={<button className="button button-primary transaction-export-button" onClick={() => { setReportDate(todayISO()); exportExcel('daily') }}><Download size={16} /> Ekspor Excel hari ini</button>} />
+      <section className="panel transactions-panel"><div className="panel-heading"><div><h3>Semua transaksi</h3><p>{filteredTransactions.length} dari {sales.length} transaksi</p></div><div className="transaction-filter-info"><span className="live-dot" /> Data terbaru</div></div>
+        <div className="transaction-search-bar"><div className="search-input transaction-search-input"><Search size={18} /><input value={transactionSearch} onChange={e => setTransactionSearch(e.target.value)} placeholder="Cari berdasarkan nomor struk…" aria-label="Cari nomor struk transaksi" />{transactionSearch && <button type="button" aria-label="Hapus pencarian nomor struk" onClick={() => setTransactionSearch('')}><X size={16} /></button>}</div><span className="transaction-search-count">{filteredTransactions.length} hasil</span></div>
+        <div className="data-table-wrap"><table className="data-table transaction-history-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{filteredTransactions.map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
+        {!sales.length && <EmptyState icon={ReceiptText} title="Belum ada transaksi" text="Transaksi yang berhasil di kasir akan muncul di halaman ini." action={<button className="button button-primary button-sm" onClick={() => navigate('cashier')}>Buka kasir</button>} />}
+        {sales.length > 0 && filteredTransactions.length === 0 && <EmptyState icon={Search} title="Nomor struk tidak ditemukan" text="Periksa kembali nomor struk atau hapus kata pencarian." action={<button className="button button-secondary button-sm" onClick={() => setTransactionSearch('')}>Hapus pencarian</button>} />}
+        <div className="table-footer"><span>Transaksi yang menunggu pembayaran QRIS tidak dihitung sebagai penjualan berhasil.</span><button className="text-action" onClick={() => navigate('reports')}>Lihat laporan <ArrowRight size={14} /></button></div>
+      </section>
+    </>
+  }
 
   const renderReports = () => {
     const gross = selectedReportSales.reduce((sum, s) => sum + Number(s.total || 0), 0)
     const itemsSold = selectedReportSales.reduce((sum, s) => sum + (s.sale_items || []).reduce((a, i) => a + Number(i.qty || 0), 0), 0)
-    const paymentCounts = ['cash', 'qris', 'transfer'].map(method => ({ method, count: selectedReportSales.filter(s => s.payment_method === method).length, total: selectedReportSales.filter(s => s.payment_method === method).reduce((sum, s) => sum + Number(s.total || 0), 0) }))
+    const paymentCounts = ['cash', 'qris'].map(method => ({ method, count: selectedReportSales.filter(s => s.payment_method === method).length, total: selectedReportSales.filter(s => s.payment_method === method).reduce((sum, s) => sum + Number(s.total || 0), 0) }))
     return <>
       <PageTitle eyebrow="ANALISIS BISNIS" title="Laporan penjualan" description={reportScope === 'monthly' ? "Ringkasan bulanan yang dapat diunduh dalam format Excel." : "Ringkasan harian yang dapat diunduh dalam format Excel."} actions={<button className="button button-primary" onClick={() => exportExcel(reportScope)}><FileSpreadsheet size={17} /> Download Excel</button>} />
       <section className="report-filter-bar"><div className="report-filter-label"><span className="report-filter-icon"><CalendarDays size={18} /></span><span><strong>Periode laporan</strong><small>{reportScope === 'monthly' ? 'Pilih bulan rekap penjualan' : 'Pilih tanggal rekap penjualan'}</small></span></div><div className="report-filter-controls"><div className="report-scope-toggle" role="group" aria-label="Periode laporan"><button type="button" className={reportScope === 'daily' ? 'active' : ''} onClick={() => setReportScope('daily')}>Per Hari</button><button type="button" className={reportScope === 'monthly' ? 'active' : ''} onClick={() => setReportScope('monthly')}>Per Bulan</button></div>{reportScope === 'monthly' ? <><input type="month" value={reportMonth} onChange={e => setReportMonth(e.target.value)} max={currentMonthKey} aria-label="Bulan laporan" /><button className="button button-secondary button-sm" onClick={() => setReportMonth(currentMonthKey)}>Bulan ini</button></> : <><input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} max={todayISO()} aria-label="Tanggal laporan" /><button className="button button-secondary button-sm" onClick={() => setReportDate(todayISO())}>Hari ini</button></>}<button className="button button-primary button-sm" onClick={() => exportExcel(reportScope)}><Download size={15} /> Ekspor</button></div></section>
@@ -1301,8 +1492,8 @@ function App() {
 
   const renderSettings = () => <>
     <PageTitle eyebrow="KONFIGURASI" title="Pengaturan toko" description="Kelola informasi toko, perangkat, dan integrasi yang digunakan." />
-    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><form className="settings-form-grid" onSubmit={saveStoreInfo}><label>Nama toko<input value={storeInfoDraft.name} onChange={e => setStoreInfoDraft(current => ({ ...current, name: e.target.value }))} readOnly={!isStoreOwner || demo} required /></label><label>Kota / lokasi<input value={storeInfoDraft.city} onChange={e => setStoreInfoDraft(current => ({ ...current, city: e.target.value }))} readOnly={!isStoreOwner || demo} placeholder="Belum diatur" /></label><label>ID toko<input value={currentStore?.store_code || currentStore?.id || '—'} readOnly /></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label>{isStoreOwner && !demo && <div className="settings-save-row"><button type="submit" className="button button-secondary" disabled={storeInfoBusy || (storeInfoDraft.name === (currentStore?.name || '') && storeInfoDraft.city === (currentStore?.city || ''))}>{storeInfoBusy ? <span className="spinner" /> : <Check size={16} />} Simpan informasi toko</button></div>}</form><div className="settings-note"><LockKeyhole size={15} /> Nama toko dan lokasi dapat diubah oleh pemilik toko. ID toko tetap menjadi kode unik untuk login karyawan.</div><label className="qris-field">Kode toko untuk login karyawan<input value={storeCodeDraft} onChange={e => setStoreCodeDraft(e.target.value.toUpperCase())} readOnly={!isStoreOwner || demo} onFocus={e => e.target.select()} placeholder="Contoh: KEDAI-001" /><small>Gunakan kode yang mudah diingat. Kode ini unik untuk setiap toko; ID internal tetap tidak berubah.</small></label>{isStoreOwner && !demo && <button className="button button-secondary" disabled={storeCodeBusy || storeCodeDraft === (currentStore?.store_code || '')} onClick={saveStoreCode}>{storeCodeBusy ? <span className="spinner" /> : <Check size={16} />} Simpan kode toko</button>}{isStoreOwner && <button className="button button-secondary" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</section>
-      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak browser.</p></section>
+    <div className="settings-grid"><section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon"><Store size={19} /></span><div><h3>Informasi toko</h3><p>Identitas toko aktif</p></div></div><form className="settings-form-grid" onSubmit={saveStoreInfo}><label>Nama toko<input value={storeInfoDraft.name} onChange={e => setStoreInfoDraft(current => ({ ...current, name: e.target.value }))} readOnly={!isStoreOwner || demo} required /></label><label>Kota / lokasi<input value={storeInfoDraft.city} onChange={e => setStoreInfoDraft(current => ({ ...current, city: e.target.value }))} readOnly={!isStoreOwner || demo} placeholder="Belum diatur" /></label><label className="store-code-field">ID toko<div className="store-code-input-row"><input value={storeCodeDraft || currentStore?.store_code || currentStore?.id || ''} onChange={e => setStoreCodeDraft(e.target.value.toUpperCase())} readOnly={!isStoreOwner || demo} onFocus={e => e.target.select()} placeholder="Contoh: TOKO-001" /><button type="button" className="store-code-copy-button" onClick={copyStoreCode} aria-label="Salin ID toko" title="Salin ID toko"><Copy size={15} /></button></div></label><label>Peran Anda<input value={roleLabel(currentRole)} readOnly /></label>{isStoreOwner && !demo && <div className="settings-save-row settings-store-actions-row"><button type="submit" className="button button-primary" disabled={storeInfoBusy || (storeInfoDraft.name === (currentStore?.name || '') && storeInfoDraft.city === (currentStore?.city || '') && storeCodeDraft.toUpperCase() === String(currentStore?.store_code || '').toUpperCase())}>{storeInfoBusy ? <span className="spinner" /> : <Check size={16} />} Simpan Informasi Toko</button><button type="button" className="button button-secondary settings-add-store-button" onClick={() => { setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah Toko</button></div>}</form></section>
+      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon blue"><Printer size={19} /></span><div><h3>Printer struk</h3><p>Hubungkan printer kasir</p></div><span className="optional-tag">Opsional</span></div><div className="integration-card"><div className="integration-graphic printer-graphic"><Printer size={28} /></div><div className="integration-copy"><strong>Printer Bluetooth / thermal</strong><p>Deteksi printer BLE yang didukung browser. Untuk perangkat Bluetooth Classic tertentu, gunakan aplikasi bridge atau cetak melalui dialog sistem.</p><span className="integration-status"><span className="status-indicator gray" /> Belum terhubung</span></div></div><div className="settings-actions"><button className="button button-primary" onClick={openPrinter}><Bluetooth size={16} /> Cari printer Bluetooth</button><button className="button button-secondary" onClick={() => printReceipt(sales[0])} disabled={!sales.length}><Printer size={16} /> Tes cetak</button></div><p className="settings-footnote">Dukungan Bluetooth langsung bervariasi menurut browser, sistem operasi, dan profil printer. Tombol tes menggunakan dialog cetak sistem Android saat dibuka di aplikasi.</p></section>
       <section className="panel settings-section qris-settings-panel"><div className="settings-section-heading"><span className="settings-icon violet"><QrCode size={19} /></span><div><h3>Pembayaran QRIS</h3><p>Atur metode pembayaran khusus toko aktif</p></div><span className={`integration-badge ${demo ? 'demo-badge' : (qrisSavedSettings ? 'configured-badge' : '')}`}>{demo ? 'Mode demo' : qrisSavedSettings ? 'Terkonfigurasi' : 'Belum diatur'}</span></div>
         {demo ? <div className="settings-note"><KeyRound size={15} /> Mode demo tidak menyimpan kredensial merchant atau menerima pembayaran nyata. Keluar dari demo dan hubungkan Supabase untuk mengatur QRIS.</div> : <>
           <label className="qris-field">Metode QRIS yang digunakan<select value={qrisSettingsDraft.mode} onChange={e => setQrisSettingsDraft(v => ({ ...v, mode: e.target.value }))}><option value="static">QRIS statis</option><option value="dynamic">QRIS dinamis</option><option value="both">Keduanya (statis dan dinamis)</option></select></label>
@@ -1313,7 +1504,7 @@ function App() {
         </>}</section>
       <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon amber"><Bell size={19} /></span><div><h3>Notifikasi & laporan</h3><p>Pengingat stok dan ringkasan harian</p></div></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><AlertTriangle size={17} /></span><div><strong>Stok menipis</strong><small>Ingatkan saat jumlah barang mencapai stok minimum.</small></div><button className="button button-secondary button-sm" onClick={enablePush}><Bell size={14} /> Aktifkan push</button></div><div className="setting-toggle-row"><span className="setting-toggle-icon"><FileSpreadsheet size={17} /></span><div><strong>Laporan harian</strong><small>Ringkasan penjualan dapat dijadwalkan dikirim melalui push notification.</small></div><button className="button button-secondary button-sm" onClick={() => { setReportDate(todayISO()); navigate('reports') }}>Lihat laporan</button></div><p className="settings-footnote">Pengiriman push saat aplikasi tertutup membutuhkan konfigurasi VAPID dan fungsi terjadwal di Supabase. Lihat README untuk langkah aktivasi.</p></section>
       <section className="panel settings-section appearance-settings"><div className="settings-section-heading"><span className="settings-icon"><Sun size={19} /></span><div><h3>Tampilan aplikasi</h3><p>Sesuaikan dengan kenyamanan Anda</p></div></div><div className="theme-appearance-block"><div className="theme-group"><strong>Mode tampilan</strong><small>Pilih terang atau gelap</small></div><div className="theme-options"><button type="button" className={theme === 'light' ? 'selected' : ''} onClick={() => setTheme('light')}><span className="theme-preview light-preview"><i /><i /><i /></span><strong><Sun size={16} /> Mode terang</strong>{theme === 'light' && <CheckCircle2 size={17} />}</button><button type="button" className={theme === 'dark' ? 'selected' : ''} onClick={() => setTheme('dark')}><span className="theme-preview dark-preview"><i /><i /><i /></span><strong><Moon size={16} /> Mode gelap</strong>{theme === 'dark' && <CheckCircle2 size={17} />}</button></div></div><div className="accent-theme-block"><div className="theme-group"><strong>Tema warna</strong><small>Warna ini mengubah aksen, latar, kartu, sidebar, dan teks aplikasi.</small></div><div className="accent-options"><button type="button" className={accentTheme === 'green' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('green')} aria-label="Tema Hijau"><span className="accent-swatch green"></span><span>Hijau</span>{accentTheme === 'green' && <CheckCircle2 size={14} />}</button><button type="button" className={accentTheme === 'blue' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('blue')} aria-label="Tema Biru"><span className="accent-swatch blue"></span><span>Biru</span>{accentTheme === 'blue' && <CheckCircle2 size={14} />}</button><button type="button" className={accentTheme === 'red' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('red')} aria-label="Tema Merah"><span className="accent-swatch red"></span><span>Merah</span>{accentTheme === 'red' && <CheckCircle2 size={14} />}</button><button type="button" className={accentTheme === 'orange' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('orange')} aria-label="Tema Oranye"><span className="accent-swatch orange"></span><span>Oranye</span>{accentTheme === 'orange' && <CheckCircle2 size={14} />}</button><button type="button" className={accentTheme === 'purple' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('purple')} aria-label="Tema Ungu"><span className="accent-swatch purple"></span><span>Ungu</span>{accentTheme === 'purple' && <CheckCircle2 size={14} />}</button><button type="button" className={accentTheme === 'teal' ? 'accent-option selected' : 'accent-option'} onClick={() => setAccentTheme('teal')} aria-label="Tema Toska"><span className="accent-swatch teal"></span><span>Toska</span>{accentTheme === 'teal' && <CheckCircle2 size={14} />}</button></div></div></section>
-      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat (PWA)</h3><p>Pasang SEMAR di layar utama</p></div></div><p className="settings-long-copy">Akses lebih cepat dari layar utama dan dapat membuka shell aplikasi saat koneksi terbatas. Fitur install sengaja tidak ditampilkan pada halaman kasir agar area transaksi tetap fokus.</p><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install SEMAR</button>{!deferredPrompt && <small className="settings-footnote">Jika tombol install tidak menampilkan prompt, gunakan menu browser “Tambahkan ke layar utama”.</small>}</section></div>
+      <section className="panel settings-section"><div className="settings-section-heading"><span className="settings-icon green"><DownloadCloud size={19} /></span><div><h3>Aplikasi perangkat</h3><p>Pilih cara memasang SEMAR</p></div></div><p className="settings-long-copy">Pilih aplikasi Android (APK Capacitor) atau pasang versi web (PWA) di layar utama perangkat.</p><div className="settings-actions install-options-actions"><button className="button button-primary" onClick={openAndroidInstall}><Smartphone size={16} /> Install APK</button><button className="button button-secondary" disabled={isCashierPage} onClick={installApp}><Download size={16} /> Install PWA</button></div><small className="settings-footnote">Untuk Android, buka workflow terbaru di GitHub lalu unduh artefak <strong>semar-capacitor-debug-apk</strong>. Untuk PWA, izinkan prompt install atau pilih “Tambahkan ke layar utama” dari menu browser.</small></section></div>
   </>
 
   const renderAdmin = () => {
@@ -1333,7 +1524,7 @@ function App() {
     )
     const auditActionLabel = (action) => ({ store_status_changed: 'Perubahan status toko', account_password_reset: 'Reset kata sandi akun', account_suspended: 'Akun ditangguhkan', account_reactivated: 'Akun diaktifkan kembali', account_deleted: 'Akun dihapus', store_deleted: 'Toko dihapus' }[action] || action || 'Aktivitas admin')
     return <>
-      <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola pemilik, toko, dan akun karyawan di platform." actions={<button className="button button-secondary" onClick={refreshAdmin} disabled={adminDirLoading}><RefreshCcw size={16} /> Muat ulang</button>} />
+      <PageTitle eyebrow="KONTROL PLATFORM" title="Administrator" description="Kelola pemilik, toko, dan akun karyawan di platform." actions={<button className="button button-primary admin-reload-button" onClick={refreshAdmin} disabled={adminDirLoading}><RefreshCcw size={16} /> Muat ulang</button>} />
       <div className="admin-toolbar panel">
         <div className="admin-search"><Search size={17} /><input value={adminSearch} onChange={e => setAdminSearch(e.target.value)} placeholder="Cari pemilik, email, toko, karyawan, atau aktivitas…" aria-label="Cari data administrator" /><button className="button button-secondary button-sm" onClick={() => setAdminSearch('')} disabled={!adminSearch}>Reset</button></div>
         <div className="admin-tabs" role="tablist" aria-label="Jenis data administrator">
@@ -1355,10 +1546,13 @@ function App() {
         {filteredOwners.map(owner => <article className="owner-card panel" key={owner.user_id}>
           <header className="owner-head">
             <span className="avatar avatar-owner">{initials(owner.full_name || owner.email)}</span>
-            <div className="owner-ident">
-              <strong>{owner.full_name || 'Tanpa nama'}{owner.suspended && <StatusPill status="suspended" />}</strong>
-              <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
-              <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
+            <div className="owner-ident-row">
+              <div className="owner-ident">
+                <strong>{owner.full_name || 'Tanpa nama'}{owner.suspended && <StatusPill status="suspended" />}</strong>
+                <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
+                <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
+              </div>
+              <button type="button" className={`owner-expand-toggle ${expandedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`} aria-label={expandedOwnerIds.includes(owner.user_id) ? `Sembunyikan toko milik ${owner.full_name || owner.email}` : `Tampilkan toko milik ${owner.full_name || owner.email}`} aria-expanded={expandedOwnerIds.includes(owner.user_id)} onClick={() => setExpandedOwnerIds(ids => ids.includes(owner.user_id) ? ids.filter(id => id !== owner.user_id) : [...ids, owner.user_id])}><ChevronDown size={18} /></button>
             </div>
             <div className="owner-actions">
               <button className="button button-secondary button-sm" onClick={() => openAdminReset({ user_id: owner.user_id, label: owner.full_name || owner.email, sub: owner.email, kind: 'owner' })}><KeyRound size={14} /> Reset sandi</button>
@@ -1366,7 +1560,7 @@ function App() {
               <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'owner', id: owner.user_id, label: owner.full_name || owner.email, expected: owner.email, warning: `Akun ${owner.email} akan dihapus permanen beserta ${owner.stores.length} toko miliknya, seluruh produk, stok, riwayat transaksi, dan ${owner.stores.reduce((n, st) => n + st.employees.length, 0)} akun karyawan. Tindakan ini tidak dapat dibatalkan.` })} disabled={!owner.email}><Trash2 size={14} /> Hapus</button>
             </div>
           </header>
-          <div className="owner-stores">
+          <div className={`owner-stores-collapse ${expandedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`}><div className="owner-stores">
             {owner.stores.length === 0 && <p className="owner-no-store">Belum memiliki toko.</p>}
             {owner.stores.map(st => <details className="owner-store" key={st.id}>
               <summary>
@@ -1397,7 +1591,7 @@ function App() {
                 </div>)}
               </div>
             </details>)}
-          </div>
+          </div></div>
         </article>)}
         {!adminDirLoading && !adminDirError && filteredOwners.length === 0 && <div className="admin-empty-results">Tidak ada pemilik yang cocok dengan pencarian.</div>}
       </section>}
@@ -1420,12 +1614,12 @@ function App() {
       <div className="sidebar-bottom"><div className="sync-status"><span className="sync-icon"><Cloud size={17} /></span><span><strong>{demo ? 'Mode demo aktif' : 'Cloud sync aktif'}</strong><small><i /> {demo ? 'Data contoh lokal' : 'Semua data tersinkron'}</small></span></div><div className="sidebar-user"><span className="user-avatar">{initials(displayName)}</span><div className="sidebar-user-details"><strong>{displayName}</strong><small>{roleLabel(currentRole)}{demo ? ' · Demo' : ''}</small></div><button className="icon-button logout-icon" onClick={signOut} aria-label="Keluar" title="Keluar"><LogOut size={17} /></button></div></div>
     </aside>
     <main className={`main-area ${isCashierPage ? 'main-cashier' : ''}`}>
-      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="breadcrumb"><span>{currentStore?.name || 'Toko'}</span><ChevronRight size={14} /><strong>{({ dashboard: 'Ringkasan', cashier: 'Kasir', inventory: 'Inventaris', transactions: 'Transaksi', reports: 'Laporan', employees: 'Karyawan', settings: 'Pengaturan', admin: 'Administrator' }[page] || 'Ringkasan')}</strong></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span><button className="quick-search-button" onClick={() => { setMobileSearchOpen(v => !v); setGlobalSearch('') }}><Search size={17} /><span>Cari menu…</span><kbd>⌘ K</kbd></button>{mobileSearchOpen && <div className="global-search-popover"><div className="search-input"><Search size={16} /><input autoFocus value={globalSearch} onChange={e => setGlobalSearch(e.target.value)} placeholder="Cari halaman…" /><button onClick={() => setMobileSearchOpen(false)}><X size={15} /></button></div>{visibleNav.filter(i => i.label.toLowerCase().includes(globalSearch.toLowerCase())).map(i => <button key={i.key} onClick={() => { navigate(i.key); setMobileSearchOpen(false) }}><i.icon size={16} />{i.label}<ArrowRight size={14} /></button>)}</div>}
-        {!isCashierPage && <button className="install-button" onClick={installApp}><DownloadCloud size={16} /><span>Install app</span></button>}
-        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={notifications.length > 0} className="notification-trigger" />{notificationOpen && <div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{notifications.length} pembaruan</small></div><button onClick={() => setNotificationOpen(false)}><X size={16} /></button></div>{notifications.length ? notifications.map(n => <div className="notification-item" key={n.id}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small></div></div>) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi baru.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan push notification</button></div>}</div>
-        <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button><span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
+      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setSidebarOpen(true)} aria-label="Buka navigasi"><Menu size={20} /></button><div className="topbar-brand-banner"><Logo small /></div></div><div className="topbar-right"><span className="topbar-date"><CalendarDays size={15} />{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        <div className="topbar-notification-wrap"><IconButton icon={Bell} label="Notifikasi" onClick={() => setNotificationOpen(v => !v)} badge={unreadNotificationCount > 0} className="notification-trigger" />{notificationOpen && createPortal(<><button type="button" className="notification-backdrop" aria-label="Tutup notifikasi" onClick={() => setNotificationOpen(false)} /><div className="notification-popover"><div className="notification-popover-head"><div><strong>Notifikasi</strong><small>{unreadNotificationCount} belum dibaca · {notifications.length} total</small></div><button className="notification-close" aria-label="Tutup notifikasi" onClick={() => setNotificationOpen(false)}><X size={16} /></button></div>{notifications.length ? notifications.map(n => { const isRead = readNotificationIds.includes(n.id); return <div className={`notification-item ${isRead ? 'is-read' : 'is-unread'}`} key={n.id} onClick={() => markNotificationRead(n.id)} role="group" aria-label={`${n.title}: ${isRead ? 'sudah dibaca' : 'belum dibaca'}`}><span className={`notification-type-icon ${n.type}`}>{n.type === 'warning' ? <AlertTriangle size={16} /> : <FileSpreadsheet size={16} />}</span><div className="notification-item-content"><strong>{n.title}</strong><p>{n.body}</p><small>{n.time}</small><div className="notification-item-actions">{n.action && <button className="text-action" onClick={(event) => { event.stopPropagation(); markNotificationRead(n.id); navigate(n.action) }}>{n.actionLabel || 'Buka'} <ArrowRight size={13} /></button>}{!isRead && <button className="notification-read-action" onClick={(event) => { event.stopPropagation(); markNotificationRead(n.id) }}><CheckCheck size={13} /> Tandai sudah dibaca</button>}</div></div></div>}) : <div className="notification-empty"><Bell size={20} /><p>Belum ada notifikasi.</p></div>}<button className="notification-footer" onClick={enablePush}><Bell size={14} /> Aktifkan notifikasi push</button>{unreadNotificationCount > 0 && <button className="notification-mark-all notification-mark-all-bottom" onClick={markAllNotificationsRead}><CheckCheck size={14} /> Tandai semua sudah dibaca</button>}</div></>, document.body)}</div>
+        <button className="theme-toggle topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label="Ganti tema" title={theme === 'light' ? 'Mode gelap' : 'Mode terang'}>{theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}</button>
+        {!isCashierPage && <button className="install-button" onClick={() => setModal({ type: 'install-options' })} aria-label="Opsi instalasi aplikasi" title="Install aplikasi"><DownloadCloud size={16} /><span>Install app</span></button>}<span className="topbar-divider" /><button className="topbar-profile" onClick={() => showToast(`${displayName} · ${session?.user?.email || 'Mode demo'}`, 'info')}><span className="user-avatar top-avatar">{initials(displayName)}</span><ChevronDown size={14} /></button></div></header>
       {loadingData && <div className="sync-banner"><span className="spinner spinner-dark" /> Memperbarui data toko…</div>}
-      <div className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
+      <div key={page} className={`page-content ${isCashierPage ? 'cashier-page-content' : ''}`}>
         {page === 'dashboard' && renderDashboard()}
         {page === 'cashier' && renderCashier()}
         {page === 'inventory' && renderInventory()}
@@ -1435,12 +1629,13 @@ function App() {
         {page === 'settings' && renderSettings()}
         {page === 'admin' && (isSuperAdmin ? renderAdmin() : <EmptyState icon={ShieldCheck} title="Akses dibatasi" text="Halaman ini hanya tersedia bagi administrator platform." />)}
       </div>
-      <footer className="app-footer"><span>© 2026 SEMAR <i /> Dibuat untuk bisnis Indonesia</span><span><span className="live-dot" /> {demo ? 'Mode demo' : 'Tersinkron dengan Supabase'}</span></footer>
+      <footer className="app-footer"><span>© 2026 SEMAR <i /> Untuk UMKM Indonesia <i /> Powered By Riabz</span>{demo && <span><span className="live-dot" /> Mode demo</span>}</footer>
     </main>
     <nav className="mobile-bottom-nav">{[
       { key: 'dashboard', label: 'Home', icon: Home }, { key: 'inventory', label: 'Stok', icon: Boxes }, { key: 'cashier', label: 'Kasir', icon: ShoppingCart }, { key: 'transactions', label: 'Transaksi', icon: ReceiptText }, { key: 'reports', label: 'Laporan', icon: BarChart3 },
     ].filter(item => visibleNav.some(nav => nav.key === item.key)).map(item => <button key={item.key} className={page === item.key ? 'active' : ''} onClick={() => navigate(item.key)}><span><item.icon size={20} /></span><small>{item.label}</small>{page === item.key && <i />}</button>)}</nav>
 
+    {modal?.type === 'install-options' && <Modal title="Install aplikasi SEMAR" subtitle="Pilih versi aplikasi yang ingin dipasang di perangkat ini." onClose={() => setModal(null)} width="small"><div className="install-options-modal"><button className="button button-primary button-wide" onClick={openAndroidInstall}><Smartphone size={17} /> Install APK</button><p>Buka workflow Android terbaru di GitHub, lalu unduh artefak <strong>semar-capacitor-debug-apk</strong>.</p><button className="button button-secondary button-wide" onClick={() => { setModal(null); installApp() }}><Download size={17} /> Install PWA</button><p>Jika prompt tidak muncul, gunakan menu browser “Tambahkan ke layar utama”.</p></div></Modal>}
     {(modal?.type === 'product' || modal?.type === 'product-edit') && <Modal title={modal.type === 'product-edit' ? 'Edit produk' : 'Tambah barang baru'} subtitle={modal.type === 'product-edit' ? 'Ubah nama, gambar, kategori, dan informasi produk.' : 'Masukkan informasi barang dan stok awal.'} onClose={() => setModal(null)}><form className="form-stack" onSubmit={saveProduct}>
       <label>Nama barang<input autoFocus value={productDraft.name} onChange={e => setProductDraft({ ...productDraft, name: e.target.value })} placeholder="Contoh: Kopi Susu Aren" required /></label>
       <div className="form-grid-two"><label>SKU<input value={productDraft.sku} onChange={e => setProductDraft({ ...productDraft, sku: e.target.value })} placeholder="MIN-001" /></label><label>Kode barcode<div className="field-with-action"><input value={productDraft.barcode} onChange={e => setProductDraft({ ...productDraft, barcode: e.target.value })} placeholder="Scan atau ketik" /><button type="button" onClick={() => showScanner('product')} aria-label="Scan barcode"><ScanLine size={17} /></button></div></label></div>
@@ -1494,11 +1689,11 @@ function App() {
 
     {modal?.type === 'stores' && <Modal title="Pilih toko aktif" subtitle="Dashboard menampilkan data untuk toko yang dipilih." onClose={() => setModal(null)}><div className="store-picker-list">{stores.map(s => <button key={s.id} className={s.id === storeId ? 'active' : ''} onClick={() => { switchStore(s.id); setModal(null) }}><span className="store-avatar">{initials(s.name)}</span><span><strong>{s.name}</strong><small>{s.city || 'Lokasi belum diatur'} · {roleLabel(s.role)}</small></span>{s.id === storeId ? <CheckCircle2 size={18} /> : <ChevronRight size={18} />}</button>)}</div>{isStoreOwner && <button className="button button-secondary button-wide" onClick={() => { setModal(null); setStoreDraft({ name: '', city: '' }); setModal({ type: 'store' }) }}><Plus size={16} /> Tambah toko lain</button>}</Modal>}
 
-    {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Gunakan kamera belakang atau input kode secara manual." onClose={() => setModal(null)} width="small"><BarcodeScanner onDetected={onBarcodeDetected} onClose={() => setModal(null)} /></Modal>}
+    {modal?.type === 'scanner' && <Modal title="Scan barcode" subtitle="Posisikan barcode di dalam bingkai kamera." onClose={() => setModal(null)} width="scanner"><BarcodeScanner onDetected={onBarcodeDetected} /></Modal>}
 
     {modal?.type === 'qris' && <Modal title="Pembayaran QRIS" subtitle={modal.demo ? 'Simulasi demo — tidak ada transaksi uang nyata' : `Struk ${modal.receipt_no || ''}`} onClose={() => { setModal(null); setQrisState(null) }} width="small"><div className="qris-modal-content"><div className="qris-amount-label">Total yang harus dibayar</div><strong className="qris-amount">{idr(modal.total)}</strong>{modal.demo ? <div className="demo-qr-placeholder"><QrCode size={72} /><strong>QRIS DEMO</strong><small>Bukan kode pembayaran asli</small></div> : modal.qr_url ? <div className="qris-generated-image"><img src={modal.qr_url} alt="Kode QRIS pembayaran" /></div> : <div className="demo-qr-placeholder"><QrCode size={62} /><strong>Menunggu kode QR</strong></div>}{modal.merchant_display_name && <p className="qris-merchant-name">{modal.merchant_display_name}</p>}<div className="qris-waiting"><span className="spinner spinner-dark" /><div><strong>{modal.demo ? 'Simulasi pembayaran' : modal.qris_mode === 'static' ? 'QRIS statis — konfirmasi manual' : 'Menunggu pembayaran pelanggan'}</strong><small>{modal.demo ? 'Klik tombol di bawah untuk simulasi sukses.' : modal.qris_mode === 'static' ? 'Pelanggan memasukkan nominal sesuai total. Kasir wajib memeriksa status pembayaran pada portal merchant sebelum mengonfirmasi.' : 'Status akan diperbarui otomatis setelah webhook pembayaran terverifikasi.'}</small></div></div>{modal.demo && <button className="button button-primary button-wide" onClick={confirmDemoQris}><CheckCircle2 size={17} /> Simulasikan pembayaran berhasil</button>}{!modal.demo && modal.qris_mode === 'static' && <button className="button button-primary button-wide" onClick={confirmStaticQris}><CheckCircle2 size={17} /> Saya sudah memeriksa pembayaran</button>}{!modal.demo && modal.qris_mode !== 'static' && <div className="qris-info-box"><Clock3 size={16} /><span>Jangan tutup halaman ini sebelum pembayaran dikonfirmasi oleh penyedia QRIS.</span></div>}<button className="button button-secondary button-wide" onClick={() => setModal(null)}>Tutup</button></div></Modal>}
 
-    {modal?.type === 'receipt' && <Modal title="Detail transaksi" subtitle={modal.sale?.receipt_no} onClose={() => setModal(null)} width="small"><div className="receipt-detail"><div className="receipt-success"><span><CheckCircle2 size={25} /></span><strong>Transaksi {modal.sale?.status === 'paid' ? 'berhasil' : 'diperbarui'}</strong><small>{formatDate(modal.sale?.created_at, { year: 'numeric' })}</small></div><div className="receipt-number-box"><small>Nomor struk</small><strong>{modal.sale?.receipt_no || '—'}</strong><span>{paymentLabel(modal.sale?.payment_method)} · {modal.sale?.cashier_name || displayName}</span></div><div className="receipt-detail-items">{(modal.sale?.sale_items || []).map((item, i) => <div className="receipt-detail-item" key={item.id || `${item.product_id}-${i}`}><div><strong>{item.product_name || item.name || 'Barang'}</strong><small>{item.qty} × {idr(item.unit_price)}</small></div><strong>{idr(item.subtotal ?? item.qty * item.unit_price)}</strong></div>)}</div><div className="receipt-totals"><div><span>Subtotal</span><span>{idr(modal.sale?.subtotal ?? modal.sale?.total)}</span></div><div><span>Diskon</span><span>−{idr(modal.sale?.discount || 0)}</span></div><div className="receipt-grand-total"><strong>Total pembayaran</strong><strong>{idr(modal.sale?.total)}</strong></div></div><button className="button button-primary button-wide" onClick={() => printReceipt(modal.sale)}><Printer size={17} /> Cetak struk</button><button className="button button-secondary button-wide receipt-close-button" onClick={() => setModal(null)}>Tutup detail</button></div></Modal>}
+    {modal?.type === 'receipt' && <Modal title="Detail transaksi" subtitle={modal.sale?.receipt_no} onClose={() => setModal(null)} width="small"><div className="receipt-detail"><div className="receipt-success"><span><CheckCircle2 size={25} /></span><strong>Transaksi {modal.sale?.status === 'paid' ? 'berhasil' : 'diperbarui'}</strong><small>{formatDate(modal.sale?.created_at, { year: 'numeric' })}</small></div><div className="receipt-number-box"><small>Nomor struk</small><strong>{modal.sale?.receipt_no || '—'}</strong><span>{paymentLabel(modal.sale?.payment_method)} · {modal.sale?.cashier_name || displayName}</span></div><div className="receipt-detail-items">{(modal.sale?.sale_items || []).map((item, i) => <div className="receipt-detail-item" key={item.id || `${item.product_id}-${i}`}><div><strong>{item.product_name || item.name || 'Barang'}</strong><small>{item.qty} × {idr(item.unit_price)}</small></div><strong>{idr(item.subtotal ?? item.qty * item.unit_price)}</strong></div>)}</div><div className="receipt-totals"><div><span>Subtotal</span><span>{idr(modal.sale?.subtotal ?? modal.sale?.total)}</span></div><div><span>Diskon</span><span>−{idr(modal.sale?.discount || 0)}</span></div><div className="receipt-grand-total"><strong>Total pembayaran</strong><strong>{idr(modal.sale?.total)}</strong></div></div><button className="button button-primary button-wide" onClick={() => printReceipt(modal.sale)}><Printer size={17} /> Cetak Struk</button><button className="button button-secondary button-wide receipt-close-button" onClick={() => setModal(null)}>Tutup detail</button></div></Modal>}
 
     {toast && <div className={`toast toast-${toast.type || 'success'}`} role="status"><span>{toast.type === 'error' ? <AlertTriangle size={18} /> : toast.type === 'info' ? <CircleHelp size={18} /> : <CheckCircle2 size={18} />}</span><p>{toast.message}</p><button onClick={() => setToast('')} aria-label="Tutup notifikasi"><X size={15} /></button></div>}
   </div>

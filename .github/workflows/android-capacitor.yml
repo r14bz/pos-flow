@@ -9,11 +9,12 @@ on:
       - "resources/**"
       - "index.html"
       - "package.json"
+      - "supabase/migrations/**"
       - "capacitor.config.ts"
       - "vite.config.js"
       - ".github/workflows/android-capacitor.yml"
   push:
-    branches: [main, feature/capacitor-android]
+    branches: [main, feature/capacitor-android, fix/capacitor-camera-receipt]
   workflow_dispatch:
 
 permissions:
@@ -68,6 +69,67 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
+      - name: Create audible SEMAR notification channel
+        run: |
+          mkdir -p android/app/src/main/java/id/posflow/app
+          cat > android/app/src/main/java/id/posflow/app/MainActivity.java <<'JAVA'
+          package id.posflow.app;
+
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.media.AudioAttributes;
+          import android.media.RingtoneManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      String channelId = "semar-alerts-v1";
+                      NotificationChannel channel = new NotificationChannel(
+                          channelId,
+                          "Notifikasi SEMAR",
+                          NotificationManager.IMPORTANCE_HIGH
+                      );
+                      channel.setDescription("Peringatan stok menipis dan pembaruan toko");
+                      channel.enableVibration(true);
+                      channel.setSound(
+                          RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                          new AudioAttributes.Builder()
+                              .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                              .build()
+                      );
+                      NotificationManager manager = getSystemService(NotificationManager.class);
+                      if (manager != null) manager.createNotificationChannel(channel);
+                  }
+              }
+          }
+          JAVA
+
+      - name: Configure Firebase Cloud Messaging (optional)
+        env:
+          FIREBASE_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::warning::Firebase config secret is not set. The APK can build, but Android push registration will not work until FIREBASE_GOOGLE_SERVICES_JSON_BASE64 is configured."
+            exit 0
+          fi
+          echo "$FIREBASE_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+          grep -q "com.google.gms:google-services" android/build.gradle || sed -i "/classpath 'com.android.tools.build:gradle/a\\        classpath 'com.google.gms:google-services:4.4.2'" android/build.gradle
+          grep -q "com.google.gms.google-services" android/app/build.gradle || echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+      - name: Declare Android camera and Bluetooth permissions
+        run: |
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.CAMERA" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />' android/app/src/main/AndroidManifest.xml
       - name: Generate launcher icons from provided brand icon
         run: npm run android:icons
 

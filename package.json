@@ -10,23 +10,28 @@
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android",
     "android:debug": "npm run cap:sync && cd android && ./gradlew assembleDebug",
-    "android:icons": "capacitor-assets generate --android"
+    "android:icons": "capacitor-assets generate --android",
+    "prebuild": "node scripts/refine-icons.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
+    "@capgo/capacitor-printer": "^7.0.0",
     "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@capacitor-community/bluetooth-le": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.7",
-    "@capacitor/assets": "^3.0.5"
+    "@capacitor/assets": "^3.0.5",
+    "sharp": "^0.33.5"
   },
   "engines": {
     "node": ">=20"
