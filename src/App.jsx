@@ -1552,7 +1552,6 @@ function App() {
                 <span className="owner-email"><Mail size={12} />{owner.email || 'Email tidak tersedia'}</span>
                 <small>Terdaftar {owner.created_at ? formatDate(owner.created_at, { year: 'numeric' }) : '—'} · Login terakhir: {lastLogin(owner.last_sign_in_at)}</small>
               </div>
-              </div>
               <button type="button" className={`owner-expand-toggle ${!collapsedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`} aria-label={!collapsedOwnerIds.includes(owner.user_id) ? `Sembunyikan toko milik ${owner.full_name || owner.email}` : `Tampilkan toko milik ${owner.full_name || owner.email}`} aria-expanded={!collapsedOwnerIds.includes(owner.user_id)} onClick={() => setCollapsedOwnerIds(ids => ids.includes(owner.user_id) ? ids.filter(id => id !== owner.user_id) : [...ids, owner.user_id])}><ChevronDown size={18} /></button>
             </div>
             <div className="owner-actions">
