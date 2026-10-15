@@ -2075,3 +2075,58 @@ html[data-platform="capacitor"] .auth-screen .auth-role-button strong { font-siz
   }
   .owner-store[open]::details-content { height: auto; opacity: 1; }
 }
+
+
+/* Follow-up layout: keep owner expand control beside the owner's name and email. */
+.owner-ident-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.owner-ident-row .owner-ident {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.owner-ident-row .owner-expand-toggle {
+  flex: 0 0 34px;
+  margin: 0;
+}
+
+/* Center the login banner and form as one balanced group on mobile.
+   Keep the full banner artwork visible and larger rather than forcing a fixed height. */
+@media (max-width: 640px) {
+  .auth-form-side {
+    min-height: 100svh;
+    justify-content: center !important;
+    align-items: center;
+    padding: 24px 22px calc(24px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+  .auth-form-logo {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 22px !important;
+    flex: 0 0 auto;
+  }
+  .auth-form-logo .brand-logo {
+    display: block;
+    width: 100%;
+    height: auto !important;
+    max-width: 100%;
+    object-fit: contain;
+  }
+  .auth-form-side > .auth-form-card {
+    width: 100%;
+    max-width: 410px;
+    margin: 0 auto !important;
+    padding: 0;
+    flex: 0 0 auto;
+  }
+  .auth-bottom-note {
+    margin: 18px auto 0 !important;
+    text-align: center;
+    flex: 0 0 auto;
+  }
+}
