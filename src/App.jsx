@@ -1560,7 +1560,7 @@ function App() {
               <button className="button button-sm button-danger" onClick={() => openAdminDelete({ kind: 'owner', id: owner.user_id, label: owner.full_name || owner.email, expected: owner.email, warning: `Akun ${owner.email} akan dihapus permanen beserta ${owner.stores.length} toko miliknya, seluruh produk, stok, riwayat transaksi, dan ${owner.stores.reduce((n, st) => n + st.employees.length, 0)} akun karyawan. Tindakan ini tidak dapat dibatalkan.` })} disabled={!owner.email}><Trash2 size={14} /> Hapus</button>
             </div>
           </header>
-          <div className={`owner-stores-collapse ${!collapsedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`}><div className="owner-stores">
+          <div className={`owner-stores-collapse ${expandedOwnerIds.includes(owner.user_id) ? 'is-expanded' : ''}`}><div className="owner-stores">
             {owner.stores.length === 0 && <p className="owner-no-store">Belum memiliki toko.</p>}
             {owner.stores.map(st => <details className="owner-store" key={st.id}>
               <summary>
