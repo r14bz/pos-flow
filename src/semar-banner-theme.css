@@ -1,0 +1,26 @@
+/* SEMAR banner theme variants: use the original artwork unchanged. */
+.brand-lockup { display: inline-flex; align-items: center; min-width: 0; }
+.brand-lockup .brand-logo {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 44px;
+  object-fit: contain;
+  object-position: left center;
+}
+.brand-lockup .brand-logo-dark { display: none; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-light { display: none !important; }
+:root[data-theme='dark'] .brand-lockup .brand-logo-dark { display: block !important; }
+.brand-small .brand-logo { height: 38px; }
+.auth-form-logo { display: flex; justify-content: center; width: min(100%, 340px); margin: 0 auto 22px; }
+.auth-form-logo .brand-lockup { width: 100%; justify-content: center; }
+.auth-form-logo .brand-logo { width: 100%; height: auto; max-height: 150px; object-fit: contain; object-position: center; }
+.sidebar-brand-row .brand-lockup { flex: 1 1 auto; justify-content: flex-start; }
+.sidebar-brand-row .brand-logo { height: 43px; max-width: 100%; }
+.topbar .brand-lockup .brand-logo { height: 36px; }
+@media (max-width: 720px) {
+  .auth-form-logo { width: min(100%, 280px); margin-bottom: 18px; }
+  .auth-form-logo .brand-logo { max-height: 120px; }
+  .sidebar-brand-row .brand-logo { height: 38px; }
+  .topbar .brand-lockup .brand-logo { height: 31px; }
+}
