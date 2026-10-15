@@ -2130,3 +2130,32 @@ html[data-platform="capacitor"] .auth-screen .auth-role-button strong { font-siz
     flex: 0 0 auto;
   }
 }
+
+
+/* Final fixes: show only one login banner variant and align installation actions. */
+.auth-form-logo .brand-lockup .brand-logo-dark { display: none; }
+:root[data-theme='dark'] .auth-form-logo .brand-lockup .brand-logo-light { display: none !important; }
+:root[data-theme='dark'] .auth-form-logo .brand-lockup .brand-logo-dark { display: block !important; }
+
+.install-options-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 9px;
+}
+.install-options-actions > button {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.install-options-actions > button svg { flex: 0 0 auto; }
+@media (max-width: 420px) {
+  .install-options-actions { gap: 7px; }
+  .install-options-actions > button { gap: 5px; padding-left: 7px; padding-right: 7px; font-size: 12px; }
+}
