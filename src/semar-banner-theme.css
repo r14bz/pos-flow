@@ -18,6 +18,11 @@
 .sidebar-brand-row .brand-lockup { flex: 1 1 auto; justify-content: flex-start; }
 .sidebar-brand-row .brand-logo { height: 43px; max-width: 100%; }
 .topbar .brand-lockup .brand-logo { height: 36px; }
+/* Desktop: keep the complete logo + login form group centered vertically. */
+@media (min-width: 721px) {
+  .auth-form-side { justify-content: center; }
+  .auth-form-side > .auth-form-card { margin: 0 auto; }
+}
 @media (max-width: 720px) {
   .auth-form-logo { width: min(100%, 280px); margin-bottom: 18px; }
   .auth-form-logo .brand-logo { max-height: 120px; }
