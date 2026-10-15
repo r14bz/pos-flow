@@ -1,0 +1,55 @@
+name: Native Android build
+
+on:
+  pull_request:
+    paths:
+      - "android-native/**"
+      - ".github/workflows/native-android.yml"
+
+concurrency:
+  group: native-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon --console=plain --stacktrace -p android-native :app:assembleDebug
+        env:
+          SUPABASE_URL: https://vegbcxmkpffwfxksdznu.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_kO93v3PWEgsEI9loYuyfGw_nqApuGbq
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-flow-native-debug-apk
+          path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
