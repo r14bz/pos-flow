@@ -19,7 +19,6 @@ import {
 } from './lib/demoData'
 import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
-import { Share } from '@capacitor/share'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
 import { BleClient } from '@capacitor-community/bluetooth-le'
 import { PushNotifications } from '@capacitor/push-notifications'
@@ -1167,11 +1166,14 @@ function App() {
     const filePeriod = scope === 'monthly' ? targetMonth : reportDate
     const fileName = `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`
     if (nativeExport) {
-      const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64', compression: true })
-      const saved = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Documents, recursive: true })
-      const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Documents })
-      await Share.share({ title: fileName, text: 'Laporan Excel SEMAR POS', url: uri || saved.uri, dialogTitle: 'Simpan atau bagikan laporan Excel' })
-      showToast('File Excel dibuat. Pilih Simpan/Download pada menu berbagi untuk menyimpannya di perangkat.')
+      // Save directly through Android's app Documents directory; do not open the share sheet.
+      await Filesystem.writeFile({
+        path: fileName,
+        data: XLSX.write(wb, { bookType: 'xlsx', type: 'base64', compression: true }),
+        directory: Directory.Documents,
+        recursive: true,
+      })
+      showToast(`File Excel tersimpan: Documents/${fileName}`)
     } else {
       const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true })
       const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
