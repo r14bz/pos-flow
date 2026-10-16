@@ -16,12 +16,15 @@
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/share": "^7.0.2",
     "@capgo/capacitor-printer": "^7.0.0",
     "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
+    "xlsx-js-style": "^1.2.0",
     "xlsx": "^0.18.5",
     "@capacitor-community/bluetooth-le": "^7.0.0",
     "@capacitor/push-notifications": "^7.0.2"
