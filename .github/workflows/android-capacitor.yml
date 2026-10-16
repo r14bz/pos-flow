@@ -86,6 +86,7 @@ jobs:
           public class MainActivity extends BridgeActivity {
               @Override
               public void onCreate(Bundle savedInstanceState) {
+                  registerPlugin(SemarFileSaverPlugin.class);
                   super.onCreate(savedInstanceState);
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       String channelId = "semar-alerts-v1";
@@ -105,6 +106,67 @@ jobs:
                       );
                       NotificationManager manager = getSystemService(NotificationManager.class);
                       if (manager != null) manager.createNotificationChannel(channel);
+                  }
+              }
+          }
+          JAVA
+          cat > android/app/src/main/java/id/posflow/app/SemarFileSaverPlugin.java <<'JAVA'
+          package id.posflow.app;
+
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.util.Base64;
+          import java.io.OutputStream;
+          import com.getcapacitor.ActivityResult;
+          import com.getcapacitor.annotation.ActivityCallback;
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+
+          @CapacitorPlugin(name = "SemarFileSaver")
+          public class SemarFileSaverPlugin extends Plugin {
+              @PluginMethod
+              public void saveExcel(PluginCall call) {
+                  String fileName = call.getString("fileName");
+                  String base64 = call.getString("base64");
+                  if (fileName == null || fileName.trim().isEmpty() || base64 == null || base64.isEmpty()) {
+                      call.reject("Nama file atau isi Excel kosong.");
+                      return;
+                  }
+                  call.save();
+                  Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                  intent.addCategory(Intent.CATEGORY_OPENABLE);
+                  intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                  intent.putExtra(Intent.EXTRA_TITLE, fileName);
+                  startActivityForResult(call, intent, "handleSaveResult");
+              }
+
+              @ActivityCallback
+              private void handleSaveResult(PluginCall call, ActivityResult result) {
+                  if (call == null) return;
+                  if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+                      JSObject cancelled = new JSObject();
+                      cancelled.put("cancelled", true);
+                      call.resolve(cancelled);
+                      return;
+                  }
+                  String base64 = call.getString("base64");
+                  String fileName = call.getString("fileName");
+                  Uri uri = result.getData().getData();
+                  try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                      if (output == null) throw new Exception("Android tidak dapat membuka lokasi penyimpanan.");
+                      output.write(Base64.decode(base64, Base64.DEFAULT));
+                      output.flush();
+                      JSObject response = new JSObject();
+                      response.put("cancelled", false);
+                      response.put("fileName", fileName);
+                      response.put("uri", uri.toString());
+                      call.resolve(response);
+                  } catch (Exception e) {
+                      call.reject("Gagal menyimpan file Excel: " + e.getMessage(), e);
                   }
               }
           }
