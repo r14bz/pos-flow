@@ -18,10 +18,12 @@ import {
   paymentLabel, roleLabel
 } from './lib/demoData'
 import { Capacitor } from '@capacitor/core'
-import { Directory, Filesystem } from '@capacitor/filesystem'
+import { registerPlugin } from '@capacitor/core'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
 import { BleClient } from '@capacitor-community/bluetooth-le'
 import { PushNotifications } from '@capacitor/push-notifications'
+
+const SemarFileSaver = registerPlugin('SemarFileSaver')
 
 const primaryNav = [
   { key: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard, roles: ['owner', 'manager', 'cashier', 'inventory', 'viewer'] },
@@ -1166,14 +1168,14 @@ function App() {
     const filePeriod = scope === 'monthly' ? targetMonth : reportDate
     const fileName = `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`
     if (nativeExport) {
-      // Save directly through Android's app Documents directory; do not open the share sheet.
-      await Filesystem.writeFile({
-        path: fileName,
-        data: XLSX.write(wb, { bookType: 'xlsx', type: 'base64', compression: true }),
-        directory: Directory.Documents,
-        recursive: true,
-      })
-      showToast(`File Excel tersimpan: Documents/${fileName}`)
+      // Android Storage Access Framework opens the system "Save as" picker.
+      const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64', compression: true })
+      const result = await SemarFileSaver.saveExcel({ fileName, base64 })
+      if (result?.cancelled) {
+        showToast('Penyimpanan dibatalkan.', 'info')
+      } else {
+        showToast(`File Excel berhasil disimpan: ${result?.fileName || fileName}`)
+      }
     } else {
       const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true })
       const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
