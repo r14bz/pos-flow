@@ -17,7 +17,6 @@ import {
   DEMO_STORE_ID, demoStores, seedProducts, seedSales, seedEmployees, idr, formatDate,
   paymentLabel, roleLabel
 } from './lib/demoData'
-import * as XLSX from 'xlsx'
 import { Capacitor } from '@capacitor/core'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
 import { BleClient } from '@capacitor-community/bluetooth-le'
@@ -1099,7 +1098,9 @@ function App() {
     finally { setSavingForm(false) }
   }
 
-  const exportExcel = (scope = reportScope) => {
+  const exportExcel = async (scope = reportScope) => {
+    // Load the large spreadsheet library only when the user exports a report.
+    const XLSX = await import('xlsx')
     const targetMonth = reportMonth || reportDate.slice(0, 7)
     const filteredSales = sales.filter(s => {
       if (s.status !== 'paid') return false
