@@ -136,10 +136,7 @@ jobs:
                       call.reject("Nama file atau isi Excel kosong.");
                       return;
                   }
-                  JSObject state = new JSObject();
-                  state.put("fileName", fileName);
-                  state.put("base64", base64);
-                  saveCall(call);
+                  call.save();
                   Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                   intent.addCategory(Intent.CATEGORY_OPENABLE);
                   intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
