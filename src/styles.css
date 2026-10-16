@@ -2163,3 +2163,28 @@ html[data-platform="capacitor"] .auth-screen .auth-role-button strong { font-siz
   .install-options-actions { gap: 7px; }
   .install-options-actions > button { gap: 5px; padding-left: 7px; padding-right: 7px; font-size: 12px; }
 }
+
+/* Make merchant static QRIS artwork large enough to scan comfortably on phones. */
+.qris-generated-image {
+  width: min(100%, 360px);
+  height: auto;
+  min-height: 0;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.qris-generated-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 48svh;
+  object-fit: contain;
+}
+@media (max-width: 640px) {
+  .qris-modal-content { gap: 12px; }
+  .qris-generated-image {
+    width: min(86vw, 360px);
+    padding: 6px;
+  }
+  .qris-generated-image img { max-height: 44svh; }
+}
