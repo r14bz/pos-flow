@@ -1407,6 +1407,23 @@ function App() {
     }
   }
 
+  const confirmStaticQrisFromTransactions = async (sale) => {
+    if (!sale || sale.status !== 'pending' || sale.payment_method !== 'qris' || sale.qris_mode !== 'static') return
+    const confirmed = window.confirm('Pastikan dana untuk transaksi ' + sale.receipt_no + ' sebesar ' + idr(sale.total) + ' sudah benar-benar diterima di aplikasi/portal merchant toko. Setujui pembayaran ini?')
+    if (!confirmed) return
+    if (!supabase) { showToast('Layanan pembayaran tidak tersedia.', 'error'); return }
+    try {
+      const { data, error } = await supabase.functions.invoke('confirm-static-qris-payment', { body: { sale_id: sale.id } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      await loadStoreData(storeId)
+      showToast(data?.already_paid ? 'Transaksi ini sudah berstatus berhasil.' : 'Pembayaran QRIS statis dikonfirmasi.')
+    } catch (err) {
+      await loadStoreData(storeId).catch(() => {})
+      showToast(err?.message || 'Konfirmasi pembayaran gagal.', 'error')
+    }
+  }
+
   const renderTransactions = () => {
     const term = transactionSearch.trim().toLocaleLowerCase('id-ID')
     const filteredTransactions = sales.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).filter(s => !term || String(s.receipt_no || '').toLocaleLowerCase('id-ID').includes(term))
@@ -1414,7 +1431,7 @@ function App() {
       <PageTitle eyebrow="RIWAYAT PENJUALAN" title="Transaksi" description="Lihat dan telusuri seluruh transaksi toko." actions={<button className="button button-primary transaction-export-button" onClick={() => { setReportDate(todayISO()); exportExcel('daily') }}><Download size={16} /> Ekspor Excel hari ini</button>} />
       <section className="panel transactions-panel"><div className="panel-heading"><div><h3>Semua transaksi</h3><p>{filteredTransactions.length} dari {sales.length} transaksi</p></div><div className="transaction-filter-info"><span className="live-dot" /> Data terbaru</div></div>
         <div className="transaction-search-bar"><div className="search-input transaction-search-input"><Search size={18} /><input value={transactionSearch} onChange={e => setTransactionSearch(e.target.value)} placeholder="Cari berdasarkan nomor struk…" aria-label="Cari nomor struk transaksi" />{transactionSearch && <button type="button" aria-label="Hapus pencarian nomor struk" onClick={() => setTransactionSearch('')}><X size={16} /></button>}</div><span className="transaction-search-count">{filteredTransactions.length} hasil</span></div>
-        <div className="data-table-wrap"><table className="data-table transaction-history-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{filteredTransactions.map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
+        <div className="data-table-wrap"><table className="data-table transaction-history-table"><thead><tr><th>No. struk</th><th>Tanggal & waktu</th><th>Kasir</th><th>Item</th><th>Pembayaran</th><th>Total</th><th>Status</th><th /></tr></thead><tbody>{filteredTransactions.map(s => <tr key={s.id}><td><button className="receipt-link" onClick={() => setModal({ type: 'receipt', sale: s })}>{s.receipt_no}</button></td><td>{formatDate(s.created_at, { year: 'numeric' })}</td><td>{s.cashier_name || displayName}</td><td>{(s.sale_items || []).reduce((n, item) => n + Number(item.qty || 0), 0)} item</td><td><span className={`payment-type ${s.payment_method}`}><i />{paymentLabel(s.payment_method)}</span></td><td><strong>{idr(s.total)}</strong></td><td><StatusPill status={s.status} /></td><td><div className="table-row-actions">{s.status === 'pending' && s.payment_method === 'qris' && s.qris_mode === 'static' && <button className="button button-primary button-sm" onClick={() => confirmStaticQrisFromTransactions(s)}><CheckCircle2 size={14} /> Setujui QRIS</button>}{s.status === 'pending' && s.payment_method === 'qris' && s.qris_mode !== 'static' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}{s.status === 'pending' && s.payment_method === 'qris' && s.qris_mode === 'static' && <button className="button button-secondary button-sm" onClick={() => cancelPendingQris(s)}><Ban size={14} /> Batalkan</button>}<button className="icon-button tiny" aria-label="Lihat struk" onClick={() => setModal({ type: 'receipt', sale: s })}><ChevronRight size={17} /></button></div></td></tr>)}</tbody></table></div>
         {!sales.length && <EmptyState icon={ReceiptText} title="Belum ada transaksi" text="Transaksi yang berhasil di kasir akan muncul di halaman ini." action={<button className="button button-primary button-sm" onClick={() => navigate('cashier')}>Buka kasir</button>} />}
         {sales.length > 0 && filteredTransactions.length === 0 && <EmptyState icon={Search} title="Nomor struk tidak ditemukan" text="Periksa kembali nomor struk atau hapus kata pencarian." action={<button className="button button-secondary button-sm" onClick={() => setTransactionSearch('')}>Hapus pencarian</button>} />}
         <div className="table-footer"><span>Transaksi yang menunggu pembayaran QRIS tidak dihitung sebagai penjualan berhasil.</span><button className="text-action" onClick={() => navigate('reports')}>Lihat laporan <ArrowRight size={14} /></button></div>
