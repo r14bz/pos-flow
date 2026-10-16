@@ -1101,7 +1101,8 @@ function App() {
   }
 
   const exportExcel = async (scope = reportScope) => {
-    // Load the large spreadsheet library only when the user exports a report.
+    try {
+    // Load the spreadsheet library only when the user exports a report.
     const XLSX = await import('xlsx-js-style')
     const nativeExport = Capacitor.isNativePlatform()
     const targetMonth = reportMonth || reportDate.slice(0, 7)
@@ -1159,9 +1160,9 @@ function App() {
       XLSX.utils.book_append_sheet(wb, ws, name)
     }
     addSheet(summaryRows, 'Ringkasan', [28, 34])
-    addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14], { filterEnd: transactionRows.length - 1, totalRow: true })
-    addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18], { filterEnd: flatItems.length - 1, totalRow: true })
-    addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18], { filterEnd: inventoryRows.length - 1, totalRow: true })
+    addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14], { filterEnd: transactionRows.length, totalRow: true })
+    addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18], { filterEnd: flatItems.length, totalRow: true })
+    addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18], { filterEnd: inventoryRows.length, totalRow: true })
     wb.Props = { Title: `Laporan ${currentStore?.name || 'Toko'}`, Subject: 'Laporan POS SEMAR', Author: 'SEMAR', CreatedDate: new Date() }
     const filePeriod = scope === 'monthly' ? targetMonth : reportDate
     const fileName = `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`
@@ -1180,6 +1181,10 @@ function App() {
       document.body.appendChild(anchor); anchor.click(); anchor.remove()
       window.setTimeout(() => URL.revokeObjectURL(url), 30000)
       showToast('File Excel berhasil diunduh.')
+    }
+    } catch (error) {
+      console.error('[SEMAR] Excel export failed:', error)
+      showToast(error?.message || 'Gagal membuat atau menyimpan file Excel. Coba lagi.', 'error')
     }
   }
 
