@@ -18,6 +18,8 @@ import {
   paymentLabel, roleLabel
 } from './lib/demoData'
 import { Capacitor } from '@capacitor/core'
+import { Directory, Filesystem } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { Printer as NativePrinter } from '@capgo/capacitor-printer'
 import { BleClient } from '@capacitor-community/bluetooth-le'
 import { PushNotifications } from '@capacitor/push-notifications'
@@ -1100,7 +1102,8 @@ function App() {
 
   const exportExcel = async (scope = reportScope) => {
     // Load the large spreadsheet library only when the user exports a report.
-    const XLSX = await import('xlsx')
+    const XLSX = await import('xlsx-js-style')
+    const nativeExport = Capacitor.isNativePlatform()
     const targetMonth = reportMonth || reportDate.slice(0, 7)
     const filteredSales = sales.filter(s => {
       if (s.status !== 'paid') return false
@@ -1118,6 +1121,8 @@ function App() {
       'Jumlah Item': (s.sale_items || []).reduce((sum, i) => sum + Number(i.qty || 0), 0), Subtotal: Number(s.subtotal || s.total || 0),
       Diskon: Number(s.discount || 0), Total: Number(s.total || 0), 'Metode Bayar': paymentLabel(s.payment_method), Status: 'Berhasil',
     }))
+    const transactionTotals = transactionRows.reduce((a, r) => ({ items: a.items + r['Jumlah Item'], subtotal: a.subtotal + r.Subtotal, discount: a.discount + r.Diskon, total: a.total + r.Total }), { items: 0, subtotal: 0, discount: 0, total: 0 })
+    const detailTotals = flatItems.reduce((a, r) => ({ qty: a.qty + r.Qty, subtotal: a.subtotal + r['Subtotal (Rp)'] }), { qty: 0, subtotal: 0 })
     const summaryRows = [
       { Metrik: 'Nama Toko', Nilai: currentStore?.name || 'Toko' },
       { Metrik: scope === 'monthly' ? 'Bulan Laporan' : 'Tanggal Laporan', Nilai: scope === 'monthly' ? targetMonth : reportDate },
@@ -1130,12 +1135,52 @@ function App() {
     ]
     const inventoryRows = products.map(p => ({ SKU: p.sku || '', Barcode: p.barcode || '', 'Nama Barang': p.name, Kategori: p.category || '', Stok: Number(p.stock || 0), 'Stok Minimum': Number(p.min_stock || 0), 'Harga Jual (Rp)': Number(p.price || 0), 'Modal (Rp)': Number(p.cost || 0), Satuan: p.unit || 'pcs', Status: Number(p.stock) <= Number(p.min_stock) ? 'Stok menipis' : 'Aman' }))
     const wb = XLSX.utils.book_new()
-    const addSheet = (rows, name, widths) => { const ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = widths.map(w => ({ wch: w })); XLSX.utils.book_append_sheet(wb, ws, name) }
-    addSheet(summaryRows, 'Ringkasan', [28, 34]); addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14]); addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18]); addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18])
+    transactionRows.push({ Tanggal: '', 'No. Struk': '', Kasir: 'TOTAL', 'Jumlah Item': transactionTotals.items, Subtotal: transactionTotals.subtotal, Diskon: transactionTotals.discount, Total: transactionTotals.total, 'Metode Bayar': '', Status: '' })
+    flatItems.push({ Tanggal: '', 'No. Struk': '', Kasir: 'TOTAL', 'Nama Barang': '', SKU: '', Qty: detailTotals.qty, 'Harga Satuan (Rp)': '', 'Subtotal (Rp)': detailTotals.subtotal, 'Metode Bayar': '' })
+    inventoryRows.push({ SKU: '', Barcode: '', 'Nama Barang': 'TOTAL STOK', Kategori: '', Stok: inventoryRows.reduce((sum, p) => sum + Number(p.Stok || 0), 0), 'Stok Minimum': '', 'Harga Jual (Rp)': '', 'Modal (Rp)': '', Satuan: '', Status: '' })
+    const border = { top: { style: 'thin', color: { rgb: 'D7E2DE' } }, bottom: { style: 'thin', color: { rgb: 'D7E2DE' } }, left: { style: 'thin', color: { rgb: 'D7E2DE' } }, right: { style: 'thin', color: { rgb: 'D7E2DE' } } }
+    const headerStyle = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 }, fill: { patternType: 'solid', fgColor: { rgb: '08765F' } }, alignment: { vertical: 'center', horizontal: 'center', wrapText: true }, border }
+    const totalStyle = { font: { bold: true, color: { rgb: '153C34' } }, fill: { patternType: 'solid', fgColor: { rgb: 'DDF3EA' } }, border }
+    const addSheet = (rows, name, widths, opts = {}) => {
+      const ws = XLSX.utils.json_to_sheet(rows)
+      ws['!cols'] = widths.map(w => ({ wch: w }))
+      ws['!autofilter'] = { ref: opts.filterEnd ? `A1:${XLSX.utils.encode_col(widths.length - 1)}${opts.filterEnd}` : `A1:${XLSX.utils.encode_col(widths.length - 1)}${Math.max(1, rows.length)}` }
+      ws['!sheetViews'] = [{ showGridLines: false }]
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1')
+      for (let R = range.s.r; R <= range.e.r; R++) for (let C = range.s.c; C <= range.e.c; C++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+        if (!cell) continue
+        cell.s = { ...(cell.s || {}), border, alignment: { vertical: 'center', wrapText: R === 0 } }
+        if (R === 0) cell.s = { ...cell.s, ...headerStyle }
+        if (opts.totalRow && R === range.e.r) cell.s = { ...cell.s, ...totalStyle }
+        if (typeof cell.v === 'number' && /Total|Subtotal|Diskon|Harga|Modal|Nilai|Tunai|QRIS|Transfer|Rata-rata/i.test(String(rows[0] ? Object.keys(rows[0])[C] : ''))) cell.z = '#,##0;[Red]-#,##0;–'
+      }
+      ws['!rows'] = [{ hpt: 30 }]
+      XLSX.utils.book_append_sheet(wb, ws, name)
+    }
+    addSheet(summaryRows, 'Ringkasan', [28, 34])
+    addSheet(transactionRows, 'Transaksi', [22, 22, 22, 14, 18, 14, 18, 18, 14], { filterEnd: transactionRows.length - 1, totalRow: true })
+    addSheet(flatItems, 'Detail Barang', [22, 22, 22, 30, 14, 9, 18, 18, 18], { filterEnd: flatItems.length - 1, totalRow: true })
+    addSheet(inventoryRows, 'Inventaris', [15, 18, 30, 18, 12, 15, 18, 18, 12, 18], { filterEnd: inventoryRows.length - 1, totalRow: true })
     wb.Props = { Title: `Laporan ${currentStore?.name || 'Toko'}`, Subject: 'Laporan POS SEMAR', Author: 'SEMAR', CreatedDate: new Date() }
     const filePeriod = scope === 'monthly' ? targetMonth : reportDate
-    XLSX.writeFile(wb, `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`)
-    showToast('File Excel berhasil diunduh.')
+    const fileName = `SEMAR-${(currentStore?.name || 'Toko').replace(/[^a-z0-9]/gi, '-')}-${filePeriod}.xlsx`
+    if (nativeExport) {
+      const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64', compression: true })
+      const saved = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Documents, recursive: true })
+      const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Documents })
+      await Share.share({ title: fileName, text: 'Laporan Excel SEMAR POS', url: uri || saved.uri, dialogTitle: 'Simpan atau bagikan laporan Excel' })
+      showToast('File Excel dibuat. Pilih Simpan/Download pada menu berbagi untuk menyimpannya di perangkat.')
+    } else {
+      const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true })
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url; anchor.download = fileName; anchor.style.display = 'none'
+      document.body.appendChild(anchor); anchor.click(); anchor.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000)
+      showToast('File Excel berhasil diunduh.')
+    }
   }
 
   const printReceipt = async (sale) => {
